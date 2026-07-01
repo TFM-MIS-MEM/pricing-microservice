@@ -27,6 +27,13 @@ app.use(cors());
 app.use('/api', limiter); // Apply rate limiter to all /api routes
 
 // ---------------------
+// Stripe Webhook — raw body MUST be registered before express.json()
+// stripe.webhooks.constructEvent() requires the original Buffer, not a parsed object.
+// ---------------------
+const webhookRoutes = require('./routes/webhook.routes');
+app.use('/api/v1/pricing/webhooks', webhookRoutes);
+
+// ---------------------
 // Request Parsing
 // ---------------------
 app.use(express.json({ limit: '10mb' }));
