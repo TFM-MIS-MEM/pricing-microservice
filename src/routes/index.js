@@ -1,12 +1,15 @@
+'use strict';
+
 const { Router } = require('express');
 const healthRoutes = require('./health.routes');
+const checkoutRoutes = require('./checkout.routes');
 
 const router = Router();
 
-// --- Health Check ---
 router.use('/health', healthRoutes);
+router.use('/api/v1/pricing/checkout', checkoutRoutes);
 
-// --- Service-specific routes (add here when implementing business logic) ---
-// router.use('/api/v1/resource', resourceRoutes);
+// NOTE: webhook routes are mounted directly in app.js BEFORE express.json()
+// to preserve the raw Buffer required by Stripe signature validation.
 
 module.exports = router;
