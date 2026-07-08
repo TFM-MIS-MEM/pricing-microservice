@@ -11,6 +11,14 @@ const config = require('./config');
 
 const app = express();
 
+// Trust exactly one hop (Kong, the only reverse proxy in front of this service)
+// so express-rate-limit reads the real client IP from X-Forwarded-For instead
+// of Kong's container IP — otherwise every client sharing the gateway would
+// share a single rate-limit bucket. Trusting just 1 hop (not `true`) means a
+// client talking to this service directly cannot spoof its own X-Forwarded-For
+// to dodge the limiter.
+app.set('trust proxy', 1);
+
 // ---------------------
 // Security Middleware & Rate Limiting
 // ---------------------
