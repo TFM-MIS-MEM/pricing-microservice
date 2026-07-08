@@ -8,11 +8,24 @@ const { createSession } = require('../controllers/checkout.controller');
 
 const router = Router();
 
+// Joi's .uri() follows strict RFC 3986 and rejects Stripe's unescaped template
+// placeholders (e.g. {CHECKOUT_SESSION_ID} in successUrl), which Stripe itself
+// requires literally so it can substitute the real session ID on redirect.
+// The WHATWG URL parser accepts them, so we validate with that instead.
+const isUrl = (value, helpers) => {
+  try {
+    new URL(value);
+    return value;
+  } catch {
+    return helpers.error('string.uri');
+  }
+};
+
 const createSessionSchema = {
   body: Joi.object({
     planId: Joi.string().required().description('Stripe Price ID of the plan to subscribe to'),
-    successUrl: Joi.string().uri().required().description('Redirect URL after successful payment'),
-    cancelUrl: Joi.string().uri().required().description('Redirect URL when payment is cancelled'),
+    successUrl: Joi.string().custom(isUrl).required().description('Redirect URL after successful payment. May include Stripe template placeholders, e.g. {CHECKOUT_SESSION_ID}.'),
+    cancelUrl: Joi.string().custom(isUrl).required().description('Redirect URL when payment is cancelled'),
   }),
 };
 
