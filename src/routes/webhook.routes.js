@@ -8,7 +8,7 @@ const router = Router();
 
 /**
  * @openapi
- * /api/v1/pricing/webhooks/stripe:
+ * /v1/pricing/webhooks/stripe:
  *   post:
  *     tags:
  *       - Webhooks

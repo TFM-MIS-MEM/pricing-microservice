@@ -5,7 +5,7 @@ const { processEvent } = require('../services/webhook.service');
 const logger = require('../utils/logger');
 
 /**
- * POST /api/v1/pricing/webhooks/stripe
+ * POST /v1/pricing/webhooks/stripe
  *
  * Receives raw Stripe webhook events. Validates the signature and dispatches
  * to the appropriate handler. Always returns 200 OK to prevent Stripe retries

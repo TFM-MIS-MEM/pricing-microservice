@@ -3,7 +3,7 @@
 const { createCheckoutSession } = require('../services/stripe.service');
 
 /**
- * POST /api/v1/pricing/checkout/create-session
+ * POST /v1/pricing/checkout/create-session
  *
  * Creates a Stripe Checkout Session for a subscription.
  * The userId is extracted from the verified JWT (set by auth.middleware).

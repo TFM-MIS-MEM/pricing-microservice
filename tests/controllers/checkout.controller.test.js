@@ -20,12 +20,14 @@ beforeEach(() => {
   jwt.verify.mockReturnValue({ ...VALID_USER, iss: 'auth-microservice' });
 });
 
-describe('POST /api/v1/pricing/checkout/create-session', () => {
+describe('POST /v1/pricing/checkout/create-session', () => {
   it('returns 201 with checkout URL on success', async () => {
-    stripeService.createCheckoutSession.mockResolvedValue('https://checkout.stripe.com/pay/cs_test');
+    stripeService.createCheckoutSession.mockResolvedValue(
+      'https://checkout.stripe.com/pay/cs_test',
+    );
 
     const res = await request(app)
-      .post('/api/v1/pricing/checkout/create-session')
+      .post('/v1/pricing/checkout/create-session')
       .set('Authorization', 'Bearer valid.token')
       .send(VALID_BODY);
 
@@ -41,19 +43,19 @@ describe('POST /api/v1/pricing/checkout/create-session', () => {
   });
 
   it('returns 401 when no Authorization header is provided', async () => {
-    const res = await request(app)
-      .post('/api/v1/pricing/checkout/create-session')
-      .send(VALID_BODY);
+    const res = await request(app).post('/v1/pricing/checkout/create-session').send(VALID_BODY);
 
     expect(res.statusCode).toBe(401);
     expect(res.body.status).toBe('fail');
   });
 
   it('returns 401 when JWT is invalid', async () => {
-    jwt.verify.mockImplementation(() => { throw new Error('invalid signature'); });
+    jwt.verify.mockImplementation(() => {
+      throw new Error('invalid signature');
+    });
 
     const res = await request(app)
-      .post('/api/v1/pricing/checkout/create-session')
+      .post('/v1/pricing/checkout/create-session')
       .set('Authorization', 'Bearer bad.token')
       .send(VALID_BODY);
 
@@ -62,7 +64,7 @@ describe('POST /api/v1/pricing/checkout/create-session', () => {
 
   it('returns 400 when planId is missing', async () => {
     const res = await request(app)
-      .post('/api/v1/pricing/checkout/create-session')
+      .post('/v1/pricing/checkout/create-session')
       .set('Authorization', 'Bearer valid.token')
       .send({ successUrl: VALID_BODY.successUrl, cancelUrl: VALID_BODY.cancelUrl });
 
@@ -71,7 +73,7 @@ describe('POST /api/v1/pricing/checkout/create-session', () => {
 
   it('returns 400 when successUrl is not a valid URI', async () => {
     const res = await request(app)
-      .post('/api/v1/pricing/checkout/create-session')
+      .post('/v1/pricing/checkout/create-session')
       .set('Authorization', 'Bearer valid.token')
       .send({ ...VALID_BODY, successUrl: 'not-a-url' });
 
@@ -80,11 +82,11 @@ describe('POST /api/v1/pricing/checkout/create-session', () => {
 
   it('forwards Stripe errors to the error handler', async () => {
     stripeService.createCheckoutSession.mockRejectedValue(
-      Object.assign(new Error('Stripe error'), { statusCode: 500, isOperational: true })
+      Object.assign(new Error('Stripe error'), { statusCode: 500, isOperational: true }),
     );
 
     const res = await request(app)
-      .post('/api/v1/pricing/checkout/create-session')
+      .post('/v1/pricing/checkout/create-session')
       .set('Authorization', 'Bearer valid.token')
       .send(VALID_BODY);
 

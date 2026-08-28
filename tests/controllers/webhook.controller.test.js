@@ -14,13 +14,13 @@ beforeEach(() => {
   jest.clearAllMocks();
 });
 
-describe('POST /api/v1/pricing/webhooks/stripe', () => {
+describe('POST /v1/pricing/webhooks/stripe', () => {
   it('returns 200 when event is processed successfully', async () => {
     stripeService.constructWebhookEvent.mockReturnValue(FAKE_EVENT);
     webhookService.processEvent.mockResolvedValue({ skipped: false });
 
     const res = await request(app)
-      .post('/api/v1/pricing/webhooks/stripe')
+      .post('/v1/pricing/webhooks/stripe')
       .set('stripe-signature', 'valid_sig')
       .set('Content-Type', 'application/json')
       .send(JSON.stringify(FAKE_EVENT));
@@ -37,7 +37,7 @@ describe('POST /api/v1/pricing/webhooks/stripe', () => {
     webhookService.processEvent.mockResolvedValue({ skipped: true });
 
     const res = await request(app)
-      .post('/api/v1/pricing/webhooks/stripe')
+      .post('/v1/pricing/webhooks/stripe')
       .set('stripe-signature', 'valid_sig')
       .set('Content-Type', 'application/json')
       .send(JSON.stringify(FAKE_EVENT));
@@ -47,7 +47,7 @@ describe('POST /api/v1/pricing/webhooks/stripe', () => {
 
   it('returns 400 when stripe-signature header is missing', async () => {
     const res = await request(app)
-      .post('/api/v1/pricing/webhooks/stripe')
+      .post('/v1/pricing/webhooks/stripe')
       .set('Content-Type', 'application/json')
       .send(JSON.stringify(FAKE_EVENT));
 
@@ -56,11 +56,16 @@ describe('POST /api/v1/pricing/webhooks/stripe', () => {
   });
 
   it('returns 400 when Stripe signature validation fails', async () => {
-    const sigError = Object.assign(new Error('Invalid signature'), { statusCode: 400, isOperational: true });
-    stripeService.constructWebhookEvent.mockImplementation(() => { throw sigError; });
+    const sigError = Object.assign(new Error('Invalid signature'), {
+      statusCode: 400,
+      isOperational: true,
+    });
+    stripeService.constructWebhookEvent.mockImplementation(() => {
+      throw sigError;
+    });
 
     const res = await request(app)
-      .post('/api/v1/pricing/webhooks/stripe')
+      .post('/v1/pricing/webhooks/stripe')
       .set('stripe-signature', 'bad_sig')
       .set('Content-Type', 'application/json')
       .send(JSON.stringify(FAKE_EVENT));
@@ -71,11 +76,11 @@ describe('POST /api/v1/pricing/webhooks/stripe', () => {
   it('forwards processing errors to the error handler', async () => {
     stripeService.constructWebhookEvent.mockReturnValue(FAKE_EVENT);
     webhookService.processEvent.mockRejectedValue(
-      Object.assign(new Error('DB error'), { statusCode: 500, isOperational: true })
+      Object.assign(new Error('DB error'), { statusCode: 500, isOperational: true }),
     );
 
     const res = await request(app)
-      .post('/api/v1/pricing/webhooks/stripe')
+      .post('/v1/pricing/webhooks/stripe')
       .set('stripe-signature', 'valid_sig')
       .set('Content-Type', 'application/json')
       .send(JSON.stringify(FAKE_EVENT));

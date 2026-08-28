@@ -46,7 +46,7 @@ Implementado globalmente en `src/app.js`:
 
 Las APIs se autodocumentan leyendo comentarios _JSDoc_ presentes sobre las rutas.
 
-- Interfaz disponible en `/api/v1/docs` (configurada vía `src/config/swagger.js`).
+- Interfaz disponible en `/docs` (configurada vía `src/config/swagger.js`).
 
 ### 6. Calidad del Código y Git Hooks (Husky)
 

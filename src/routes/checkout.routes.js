@@ -24,14 +24,22 @@ const isUrl = (value, helpers) => {
 const createSessionSchema = {
   body: Joi.object({
     planId: Joi.string().required().description('Stripe Price ID of the plan to subscribe to'),
-    successUrl: Joi.string().custom(isUrl).required().description('Redirect URL after successful payment. May include Stripe template placeholders, e.g. {CHECKOUT_SESSION_ID}.'),
-    cancelUrl: Joi.string().custom(isUrl).required().description('Redirect URL when payment is cancelled'),
+    successUrl: Joi.string()
+      .custom(isUrl)
+      .required()
+      .description(
+        'Redirect URL after successful payment. May include Stripe template placeholders, e.g. {CHECKOUT_SESSION_ID}.',
+      ),
+    cancelUrl: Joi.string()
+      .custom(isUrl)
+      .required()
+      .description('Redirect URL when payment is cancelled'),
   }),
 };
 
 /**
  * @openapi
- * /api/v1/pricing/checkout/create-session:
+ * /v1/pricing/checkout/create-session:
  *   post:
  *     tags:
  *       - Checkout
