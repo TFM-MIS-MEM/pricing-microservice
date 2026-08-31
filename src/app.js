@@ -22,7 +22,21 @@ app.set('trust proxy', 1);
 // The general rate limit belongs to the gateway (I6): Kong applies it before
 // the request ever reaches this service. Keeping a second limiter here would
 // only split one client across two independent buckets.
-app.use(helmet());
+//
+// Helmet's default Content-Security-Policy sets `default-src 'self'` and no
+// `connect-src`, so the browser only allows requests back to this same origin.
+// Swagger UI targets the gateway on another port, so every "Try it out" was
+// blocked before leaving the browser — no request ever reached Kong, and
+// Swagger reported it as the generic "Failed to fetch", listing CORS among the
+// possible causes, which it is not. The relaxation is scoped to /docs; every
+// other path keeps the full set of headers.
+app.use((req, res, next) => {
+  if (req.path.startsWith('/docs')) {
+    helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false })(req, res, next);
+  } else {
+    helmet()(req, res, next);
+  }
+});
 app.use(cors());
 
 // ---------------------
