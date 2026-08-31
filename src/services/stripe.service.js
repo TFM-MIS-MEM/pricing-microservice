@@ -59,7 +59,6 @@ const constructWebhookEvent = (rawBody, signature) => {
  * @param {string} subscriptionId
  * @returns {Promise<import('stripe').Stripe.Subscription>}
  */
-const retrieveSubscription = (subscriptionId) =>
-  stripe.subscriptions.retrieve(subscriptionId);
+const retrieveSubscription = (subscriptionId) => stripe.subscriptions.retrieve(subscriptionId);
 
 module.exports = { createCheckoutSession, constructWebhookEvent, retrieveSubscription };

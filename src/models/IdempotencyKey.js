@@ -60,7 +60,7 @@ const idempotencyKeySchema = new mongoose.Schema(
         return ret;
       },
     },
-  }
+  },
 );
 
 const IdempotencyKey = mongoose.model('IdempotencyKey', idempotencyKeySchema);

@@ -30,7 +30,7 @@ describe('SubscriptionRecord model', () => {
         const err = doc.validateSync();
         expect(err).toBeDefined();
         expect(err.errors[field]).toBeDefined();
-      }
+      },
     );
 
     it('rejects an invalid status value', () => {
@@ -41,7 +41,15 @@ describe('SubscriptionRecord model', () => {
     });
 
     it('accepts all valid Stripe status values', () => {
-      const statuses = ['active', 'trialing', 'past_due', 'canceled', 'unpaid', 'incomplete', 'incomplete_expired'];
+      const statuses = [
+        'active',
+        'trialing',
+        'past_due',
+        'canceled',
+        'unpaid',
+        'incomplete',
+        'incomplete_expired',
+      ];
       statuses.forEach((status) => {
         const doc = new SubscriptionRecord({ ...VALID_PAYLOAD, status });
         const err = doc.validateSync();

@@ -116,7 +116,7 @@ const subscriptionRecordSchema = new mongoose.Schema(
         return ret;
       },
     },
-  }
+  },
 );
 
 const SubscriptionRecord = mongoose.model('SubscriptionRecord', subscriptionRecordSchema);

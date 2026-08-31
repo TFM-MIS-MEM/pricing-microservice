@@ -36,7 +36,9 @@ const handleCheckoutCompleted = async (session) => {
   const stripeSubscriptionId = session.subscription;
 
   if (!userId || !stripeSubscriptionId) {
-    logger.warn('checkout.session.completed missing client_reference_id or subscription', { session });
+    logger.warn('checkout.session.completed missing client_reference_id or subscription', {
+      session,
+    });
     return;
   }
 
@@ -52,7 +54,7 @@ const handleCheckoutCompleted = async (session) => {
       periodEnd: new Date(subscription.current_period_end * 1000),
       cancelAtPeriodEnd: subscription.cancel_at_period_end,
     },
-    { upsert: true, new: true, runValidators: true }
+    { upsert: true, new: true, runValidators: true },
   );
 
   logger.info(`SubscriptionRecord upserted for user ${userId}`);
@@ -66,7 +68,7 @@ const handleSubscriptionDeleted = async (subscription) => {
   await SubscriptionRecord.findOneAndUpdate(
     { stripeSubscriptionId: subscription.id },
     { status: 'canceled', cancelAtPeriodEnd: false },
-    { runValidators: true }
+    { runValidators: true },
   );
 
   logger.info(`Subscription ${subscription.id} marked as canceled`);
@@ -83,7 +85,7 @@ const handleInvoicePaymentFailed = async (invoice) => {
   await SubscriptionRecord.findOneAndUpdate(
     { stripeSubscriptionId },
     { status: 'past_due' },
-    { runValidators: true }
+    { runValidators: true },
   );
 
   logger.info(`Subscription ${stripeSubscriptionId} marked as past_due`);

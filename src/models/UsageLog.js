@@ -79,7 +79,7 @@ const usageLogSchema = new mongoose.Schema(
         return ret;
       },
     },
-  }
+  },
 );
 
 const UsageLog = mongoose.model('UsageLog', usageLogSchema);
