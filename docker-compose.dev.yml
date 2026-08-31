@@ -1,44 +1,90 @@
-version: "3.8"
+# ===========================================================
+# Pricing Microservice — Entorno de Desarrollo Local
+#
+# Servicios: pricing-service + pricing-mongodb
+# Red: tfm-network (externa, creada por scripts/dev-up.sh)
+#
+# Uso independiente:
+#   docker network create tfm-network   # solo la primera vez
+#   docker compose -f docker-compose.dev.yml up --build
+#
+# Via script de orquestación:
+#   ../scripts/dev-up.sh
+# ===========================================================
+
+version: "3.9"
 
 services:
-  mongodb:
-    restart: unless-stopped
-    image: mongo:latest
-    container_name: template-mongodb
-    environment:
-      - MONGO_INITDB_ROOT_USERNAME=${MONGO_INITDB_ROOT_USERNAME}
-      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_INITDB_ROOT_PASSWORD}
-    networks:
-      - template-network
-    ports:
-      - "27017:27017"
-    volumes:
-      - mongo-data:/data/db
 
-  template:
-    restart: unless-stopped
+  # -----------------------------------------------------------
+  # PRICING MICROSERVICE — Node.js + Express (modo desarrollo)
+  # -----------------------------------------------------------
+  pricing:
     build:
       context: .
       dockerfile: Dockerfile.dev
-    container_name: template-service
+    container_name: pricing-service
+    restart: unless-stopped
+    env_file:
+      - .env
     environment:
-      - MONGODB_URI=${MONGODB_URI}
-      - NODE_ENV=development
-      - PORT=${PORT}
-      - LOG_LEVEL=${LOG_LEVEL}
-    depends_on:
-      - mongodb
-    networks:
-      - template-network
+      NODE_ENV: development
+      PORT: 3000
+      LOG_LEVEL: ${LOG_LEVEL:-debug}
+      MONGODB_URI: mongodb://pricing-mongodb:27017/pricing-db
+      INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:-dev_internal_secret_key_789}
+      JWT_SECRET: ${JWT_SECRET}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
     ports:
-      - "${PORT}:${PORT}"
+      - "3001:3000"   # Host 3001 → Container 3000 (auth ocupa el 3000 del host)
     volumes:
-      - ./:/app:cached
+      - .:/app:cached
       - /app/node_modules
+    networks:
+      - tfm-network
+    depends_on:
+      pricing-mongodb:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
 
+  # -----------------------------------------------------------
+  # PRICING DATABASE — MongoDB
+  # -----------------------------------------------------------
+  pricing-mongodb:
+    image: mongo:7.0
+    container_name: pricing-mongodb
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_DATABASE: pricing-db
+    ports:
+      - "27018:27017"   # Host 27018 → Container 27017 (auth-mongodb ocupa el 27017 del host)
+    volumes:
+      - pricing-mongo-data:/data/db
+    networks:
+      - tfm-network
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+# -----------------------------------------------------------
+# VOLUMES
+# -----------------------------------------------------------
 volumes:
-  mongo-data:
+  pricing-mongo-data:
+    name: tfm_pricing-mongo-data
 
+# -----------------------------------------------------------
+# NETWORKS — Externa (compartida entre microservicios)
+# -----------------------------------------------------------
 networks:
-  template-network:
-    driver: bridge
+  tfm-network:
+    external: true
+    name: tfm-network

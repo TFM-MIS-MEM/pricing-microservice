@@ -1,7 +1,6 @@
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
-const rateLimit = require('express-rate-limit');
 const morgan = require('morgan');
 const routes = require('./routes');
 const { setupSwagger } = require('./config/swagger');
@@ -11,20 +10,41 @@ const config = require('./config');
 
 const app = express();
 
-// ---------------------
-// Security Middleware & Rate Limiting
-// ---------------------
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  limit: 100, // Limit each IP to 100 requests per `window` (here, per 15 minutes)
-  standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
-  legacyHeaders: false, // Disable the `X-RateLimit-*` headers
-  message: { status: 'fail', message: 'Too many requests from this IP, please try again later.' },
-});
+// This service is only reachable through Kong: the real client IP arrives in
+// X-Forwarded-For and the gateway is the one that writes it. Trusting exactly
+// one hop (not `true`) means a client talking to the service directly cannot
+// spoof its own X-Forwarded-For.
+app.set('trust proxy', 1);
 
-app.use(helmet());
+// ---------------------
+// Security Middleware
+// ---------------------
+// The general rate limit belongs to the gateway (I6): Kong applies it before
+// the request ever reaches this service. Keeping a second limiter here would
+// only split one client across two independent buckets.
+//
+// Helmet's default Content-Security-Policy sets `default-src 'self'` and no
+// `connect-src`, so the browser only allows requests back to this same origin.
+// Swagger UI targets the gateway on another port, so every "Try it out" was
+// blocked before leaving the browser — no request ever reached Kong, and
+// Swagger reported it as the generic "Failed to fetch", listing CORS among the
+// possible causes, which it is not. The relaxation is scoped to /docs; every
+// other path keeps the full set of headers.
+app.use((req, res, next) => {
+  if (req.path.startsWith('/docs')) {
+    helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false })(req, res, next);
+  } else {
+    helmet()(req, res, next);
+  }
+});
 app.use(cors());
-app.use('/api', limiter); // Apply rate limiter to all /api routes
+
+// ---------------------
+// Stripe Webhook — raw body MUST be registered before express.json()
+// stripe.webhooks.constructEvent() requires the original Buffer, not a parsed object.
+// ---------------------
+const webhookRoutes = require('./routes/webhook.routes');
+app.use('/v1/pricing/webhooks', webhookRoutes);
 
 // ---------------------
 // Request Parsing

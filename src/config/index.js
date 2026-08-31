@@ -5,12 +5,18 @@ dotenv.config();
 const config = {
   port: parseInt(process.env.PORT, 10) || 3000,
   nodeEnv: process.env.NODE_ENV || 'development',
-  mongodbUri: process.env.MONGODB_URI || 'mongodb://localhost:27017/microservice-db',
+  mongodbUri: process.env.MONGODB_URI || 'mongodb://localhost:27017/pricing-db',
   logLevel: process.env.LOG_LEVEL || 'debug',
   isProduction: process.env.NODE_ENV === 'production',
   isTest: process.env.NODE_ENV === 'test',
-  apiTitle: process.env.API_TITLE || 'Microservice API',
+  apiTitle: process.env.API_TITLE || 'Pricing Microservice API',
   apiDescription: process.env.API_DESCRIPTION || 'OAS documentation for this Microservice REST API',
+  jwtSecret: process.env.JWT_SECRET,
+  internalApiSecret: process.env.INTERNAL_API_SECRET,
+  stripe: {
+    secretKey: process.env.STRIPE_SECRET_KEY,
+    webhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
+  },
 };
 
 module.exports = config;

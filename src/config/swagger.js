@@ -15,8 +15,8 @@ const swaggerOptions = {
     },
     servers: [
       {
-        url: `http://localhost:${config.port}`,
-        description: 'Local development server',
+        url: 'http://localhost:8000',
+        description: 'API Gateway (Kong)',
       },
     ],
     components: {
@@ -29,7 +29,7 @@ const swaggerOptions = {
       },
     },
   },
-  apis: ['./src/routes/*.js'],
+  apis: ['./src/models/*.js', './src/routes/*.js'],
 };
 
 const swaggerSpec = swaggerJsdoc(swaggerOptions);
@@ -39,7 +39,7 @@ const swaggerSpec = swaggerJsdoc(swaggerOptions);
  * @param {import('express').Application} app
  */
 const setupSwagger = (app) => {
-  app.use('/api/v1/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+  app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 };
 
 module.exports = { setupSwagger, swaggerSpec };

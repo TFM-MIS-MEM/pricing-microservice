@@ -1,0 +1,678 @@
+openapi: 3.0.3
+
+info:
+  title: Servicio de Pricing
+  description: |
+    Gestiona la suscripción a los planes y complementos, la integración con la
+    pasarela de pago y con el motor de *feature toggling*, y la exposición del
+    consumo acumulado.
+
+    ## Reparto de responsabilidades con el servicio de reconocimiento facial
+
+    Este servicio es dueño del **derecho**: qué plan tiene la cuenta, qué
+    complementos ha contratado y qué límites le corresponden. El servicio de
+    reconocimiento facial es dueño del **consumo real**.
+
+    El cálculo de las unidades consumidas se realiza en aquel servicio, único
+    conocedor del modelo empleado, del número de inferencias ejecutadas y del
+    tamaño de la galería implicada. El consumo se comunica de forma asíncrona,
+    con las dimensiones necesarias para el análisis: cuenta, canal, modelo y
+    operación. Se acepta por tanto una **consistencia eventual** entre el
+    consumo real y el reflejado en el *pricing token*.
+
+    ## Tipología de complementos
+
+    - **Booleanos**: se contratan o no (`liveness`, `model-base`). Enviar
+      `quantity` produce `400`.
+    - **Cuantitativos**: admiten varias unidades hasta un máximo
+      (`expansion-pack`, máximo 3). Superarlo produce `409`.
+
+    ## Eventos publicados
+
+    - `subscription.plan_changed`, cuando un cambio de plan **se hace
+      efectivo** (inmediatamente en las mejoras, al cierre del periodo en las
+      reducciones). Lo consume el servicio de reconocimiento facial para
+      congelar o descongelar galerías.
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:3001
+    description: Desarrollo local — acceso directo al servicio, sin pasarela
+  - url: http://localhost:8000
+    description: Desarrollo local a través de Kong
+  - url: https://api.example.com
+    description: Producción
+
+
+tags:
+  - name: Suscripción
+  - name: Complementos
+  - name: Consumo
+  - name: Facturación
+
+paths:
+
+  /v1/pricing/checkout/create-session:
+    post:
+      tags: [Facturación]
+      summary: Crear una sesión de pago
+      operationId: createCheckoutSession
+      description: |
+        Crea una sesión de pago para un plan y, opcionalmente, un conjunto de
+        complementos.
+
+        **Patrón:** STATE CREATION OPERATION. Aunque la sesión se crea en la
+        pasarela de pago externa, este servicio persiste su referencia, por lo
+        que la operación escribe estado y no constituye una COMPUTATION
+        FUNCTION.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [planId, successUrl, cancelUrl]
+              properties:
+                planId:
+                  $ref: '#/components/schemas/PlanId'
+                successUrl:
+                  type: string
+                  format: uri
+                cancelUrl:
+                  type: string
+                  format: uri
+                addOnIds:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/AddOnId'
+      responses:
+        '201':
+          description: Sesión creada
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [sessionId, url]
+                properties:
+                  sessionId:
+                    type: string
+                  url:
+                    type: string
+                    format: uri
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1/pricing/subscription/status:
+    get:
+      tags: [Suscripción]
+      summary: Consultar el estado de la suscripción
+      operationId: getSubscriptionStatus
+      description: |
+        Devuelve el **derecho** de la cuenta: plan, complementos contratados y
+        límites vigentes, extraídos del *pricing token*.
+
+        Para el **consumo real** debe emplearse `GET /v1/pricing/subscription/usage`. La
+        separación es deliberada: evita que dos endpoints devuelvan la misma
+        información con distinta frescura.
+
+        **Patrón:** RETRIEVAL OPERATION.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Estado de la suscripción
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, plan, addOns, limits, currentPeriodEnd]
+                properties:
+                  status:
+                    type: string
+                    enum: [active, past_due, canceled, pending_downgrade]
+                  plan:
+                    $ref: '#/components/schemas/PlanId'
+                  addOns:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ContractedAddOn'
+                  limits:
+                    $ref: '#/components/schemas/Limits'
+                  currentPeriodEnd:
+                    type: string
+                    format: date-time
+                  pendingPlan:
+                    allOf:
+                      - $ref: '#/components/schemas/PlanId'
+                    description: |
+                      Plan al que se migrará al cierre del periodo, presente
+                      únicamente si hay una reducción pendiente de aplicar.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1/pricing/subscription/update:
+    patch:
+      tags: [Suscripción]
+      summary: Cambiar de plan
+      operationId: updateSubscription
+      description: |
+        En una **mejora** se cobra la diferencia de forma prorrateada y el
+        cambio es inmediato. En una **reducción** el cambio se aplica al cierre
+        del periodo, dado que el cliente ya ha abonado los servicios del plan
+        superior.
+
+        En ambos casos, el evento `subscription.plan_changed` se publica cuando
+        el cambio **se hace efectivo**, no cuando se solicita. Publicarlo antes
+        congelaría galerías que el cliente todavía tiene derecho a usar.
+
+        **Patrón:** STATE TRANSITION OPERATION.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [newPlanId]
+              properties:
+                newPlanId:
+                  $ref: '#/components/schemas/PlanId'
+      responses:
+        '200':
+          description: Cambio registrado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  effectiveAt:
+                    type: string
+                    format: date-time
+                  immediate:
+                    type: boolean
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: La cuenta ya se encuentra en ese plan
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorReport'
+
+  /v1/pricing/subscription/addons/{addonId}:
+    parameters:
+      - name: addonId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/AddOnId'
+    post:
+      tags: [Complementos]
+      summary: Contratar un complemento
+      operationId: addAddOn
+      description: |
+        Sigue la lógica de la mejora: cobro prorrateado e incorporación
+        inmediata al contrato.
+
+        En complementos **booleanos**, `quantity` debe omitirse. En
+        complementos **cuantitativos**, indica el número de unidades a
+        contratar; superar el máximo del complemento produce `409`.
+
+        Si el complemento altera los modelos disponibles para la cuenta, se
+        publica `subscription.plan_changed`, lo que provoca la **descongelación**
+        de las galerías afectadas.
+
+        **Patrón:** STATE TRANSITION OPERATION.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                quantity:
+                  type: integer
+                  minimum: 1
+                  default: 1
+                  description: Solo admisible en complementos cuantitativos.
+      responses:
+        '200':
+          description: Complemento contratado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContractedAddOn'
+        '400':
+          description: |
+            Petición mal formada; en particular, `quantity` enviado sobre un
+            complemento booleano (`QUANTITY_NOT_APPLICABLE`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorReport'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: |
+            El complemento no está disponible para el plan actual
+            (`FEATURE_NOT_IN_PLAN`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorReport'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: |
+            Ya contratado (`ADDON_ALREADY_CONTRACTED`) o máximo de unidades
+            superado (`ADDON_MAX_QUANTITY_EXCEEDED`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorReport'
+    delete:
+      tags: [Complementos]
+      summary: Cancelar un complemento
+      operationId: removeAddOn
+      description: |
+        Sigue la lógica de la reducción: la funcionalidad se mantiene hasta el
+        cierre del periodo.
+
+        En complementos cuantitativos, `quantity` permite reducir el número de
+        unidades sin cancelar el complemento por completo.
+
+        **Patrón:** STATE TRANSITION OPERATION.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: quantity
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+          description: |
+            Unidades a cancelar en complementos cuantitativos. Si se omite, se
+            cancela el complemento completo.
+      responses:
+        '200':
+          description: Cancelación registrada
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  effectiveAt:
+                    type: string
+                    format: date-time
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1/pricing/subscription:
+    delete:
+      tags: [Suscripción]
+      summary: Cancelar la suscripción
+      operationId: cancelSubscription
+      description: |
+        En una baja voluntaria se marca para finalizar al cierre del periodo. La
+        cancelación inmediata se reserva al consumo del evento
+        `account.deleted`, publicado por el servicio de autenticación cuando el
+        titular ejerce su derecho de supresión.
+
+        **Patrón:** STATE TRANSITION OPERATION.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: immediate
+          in: query
+          required: false
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: Cancelación registrada
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [cancellationDate]
+                properties:
+                  cancellationDate:
+                    type: string
+                    format: date-time
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1/pricing/subscription/usage:
+    get:
+      tags: [Consumo]
+      summary: Consultar el consumo
+      operationId: getUsage
+      description: |
+        Devuelve el **consumo real** de la cuenta. Los desgloses por canal y por
+        modelo se construyen a partir de las dimensiones incluidas en los
+        eventos emitidos por el servicio de reconocimiento facial.
+
+        Se expone en ambos canales con un único contrato: lo que varía entre
+        consumidores no es el contrato sino la granularidad solicitada, que se
+        resuelve con un parámetro y no con endpoints separados.
+
+        La profundidad del histórico accesible depende del plan (7, 90 o 365
+        días).
+
+        **Patrón:** RETRIEVAL OPERATION.
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - name: granularity
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [current, daily, monthly]
+            default: current
+        - name: from
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Consumo de la cuenta
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [unitsConsumed, unitsLimit, indexedFaces, indexedFacesLimit, periodEnd]
+                properties:
+                  unitsConsumed:
+                    type: number
+                    description: Métrica de flujo, acumulativa dentro del periodo.
+                  unitsLimit:
+                    type: integer
+                  indexedFaces:
+                    type: integer
+                    description: |
+                      Métrica de estado: aumenta al enrolar y disminuye al
+                      eliminar. No se obtiene por acumulación de eventos.
+                  indexedFacesLimit:
+                    type: integer
+                  periodEnd:
+                    type: string
+                    format: date-time
+                  byChannel:
+                    type: object
+                    properties:
+                      frontend:
+                        type: number
+                      api:
+                        type: number
+                  byModel:
+                    type: object
+                    additionalProperties:
+                      type: number
+                  history:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        period:
+                          type: string
+                        units:
+                          type: number
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: |
+            La granularidad o el rango solicitados exceden la retención del plan
+            (`HISTORY_NOT_IN_PLAN`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorReport'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /v1/pricing/billing/portal:
+    post:
+      tags: [Facturación]
+      summary: Generar acceso al portal de facturación
+      operationId: createBillingPortalSession
+      description: |
+        Genera un enlace temporal al portal de autoservicio de la pasarela de
+        pago.
+
+        **Patrón:** STATE CREATION OPERATION. Crea una sesión con vigencia
+        limitada, por lo que escribe estado pese a devolver únicamente un
+        enlace.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [returnUrl]
+              properties:
+                returnUrl:
+                  type: string
+                  format: uri
+      responses:
+        '201':
+          description: Sesión creada
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [portalUrl]
+                properties:
+                  portalUrl:
+                    type: string
+                    format: uri
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1/pricing/webhooks/stripe:
+    post:
+      tags: [Facturación]
+      summary: Recibir eventos de la pasarela de pago
+      operationId: handleStripeWebhook
+      description: |
+        Recibe los eventos de la pasarela de pago.
+
+        La verificación de firma debe realizarse sobre el **cuerpo crudo**, no
+        sobre el JSON reserializado: un cambio de espaciado o de orden de claves
+        invalidaría la firma.
+
+        La idempotencia se garantiza mediante la colección
+        `idempotence_keys`, dado que la pasarela puede reenviar un mismo evento.
+
+        Es el punto donde se detecta que un cambio de plan se ha hecho efectivo
+        y, en consecuencia, donde se publica `subscription.plan_changed`.
+
+        **Patrón:** STATE TRANSITION OPERATION.
+      security: []
+      parameters:
+        - name: Stripe-Signature
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Evento procesado
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          description: Firma inválida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorReport'
+
+components:
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    apiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+
+  schemas:
+
+    PlanId:
+      type: string
+      enum: [free, pro, business]
+
+    AddOnId:
+      type: string
+      enum: [liveness, model-base, expansion-pack]
+
+    AddOnType:
+      type: string
+      enum: [boolean, quantitative]
+
+    ContractedAddOn:
+      type: object
+      required: [addOnId, type, quantity]
+      properties:
+        addOnId:
+          $ref: '#/components/schemas/AddOnId'
+        type:
+          $ref: '#/components/schemas/AddOnType'
+        quantity:
+          type: integer
+          minimum: 1
+          description: Siempre 1 en complementos booleanos.
+
+    Limits:
+      type: object
+      description: |
+        Límites vigentes resultantes de combinar el plan con los complementos
+        contratados.
+      properties:
+        indexedFaces:
+          type: integer
+        unitsPerMonth:
+          type: integer
+        galleries:
+          type: integer
+          nullable: true
+          description: '`null` indica ausencia de límite.'
+        rateInference:
+          type: integer
+          description: Peticiones por segundo sobre operaciones de inferencia.
+        rateManagement:
+          type: integer
+          description: Peticiones por segundo sobre operaciones de gestión.
+        availableModels:
+          type: array
+          items:
+            type: string
+            enum: [xs, s, base]
+        historyRetentionDays:
+          type: integer
+        apiChannel:
+          type: boolean
+        identification1N:
+          type: boolean
+        configurableThreshold:
+          type: boolean
+        webhooks:
+          type: boolean
+        whiteLabelWidget:
+          type: boolean
+        liveness:
+          type: boolean
+          description: |
+            Otorgado por el complemento de prueba de vida. Debe exponerse
+            explícitamente: sin él, ni el frontend puede decidir si mostrar la
+            interfaz de captura ni el servicio de reconocimiento facial puede
+            fundamentar el `403 FEATURE_NOT_IN_PLAN` que promete en las
+            operaciones de prueba de vida.
+
+    ErrorReport:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        details:
+          type: object
+          additionalProperties: true
+
+  responses:
+
+    BadRequest:
+      description: Petición mal formada
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorReport'
+
+    Unauthorized:
+      description: Credencial ausente o inválida
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorReport'
+
+    NotFound:
+      description: Recurso no encontrado
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorReport'
+
+    TooManyRequests:
+      description: Límite de tasa superado
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorReport'

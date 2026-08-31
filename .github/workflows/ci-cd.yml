@@ -13,28 +13,30 @@ jobs:
 
     strategy:
       matrix:
-        node-version: [20]
+        # Node 22, la misma versión sobre la que construyen los Dockerfile.
+        node-version: [22]
 
     steps:
       # -----------------------------------------------
       # 1. Checkout code
       # -----------------------------------------------
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       # -----------------------------------------------
       # 2. Setup pnpm
       # -----------------------------------------------
       - name: Setup pnpm
-        uses: pnpm/action-setup@v3
+        uses: pnpm/action-setup@v4
         with:
-          version: 10
+          # La misma que fijan los Dockerfile y la que escribió el lockfile.
+          version: 11.24.0
 
       # -----------------------------------------------
       # 3. Setup Node.js
       # -----------------------------------------------
       - name: Setup Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: ${{ matrix.node-version }}
           cache: 'pnpm'
@@ -68,7 +70,7 @@ jobs:
       # -----------------------------------------------
       - name: Upload coverage report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: coverage-report
           path: coverage/
