@@ -20,9 +20,10 @@ const ACCOUNT_ID = '507f1f77bcf86cd799439011';
  * Cabeceras de identidad tal y como las escribe la pasarela.
  *
  * El plugin `space-auth` valida rol y canal contra estos mismos enums antes de
- * escribirlas (`handler.lua:221-222`) y borra las tres incondicionalmente antes
- * de cualquier bifurcación, de modo que un valor fuera del enum no puede
- * proceder de Kong: sólo de alguien que ha alcanzado el servicio por su cuenta.
+ * escribirlas, en `SpaceAuthHandler:access`, y borra las tres
+ * incondicionalmente antes de cualquier bifurcación, de modo que un valor fuera
+ * del enum no puede proceder de Kong: sólo de alguien que ha alcanzado el
+ * servicio por su cuenta.
  *
  * `null` en cualquier campo omite esa cabecera.
  */

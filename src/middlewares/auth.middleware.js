@@ -26,16 +26,20 @@ const AppError = require('../utils/AppError');
  * garantiza de punta a punta, y merece la pena dejar por escrito los cuatro
  * eslabones porque el contrato de `auth`, por sí solo, NO basta.
  *
- *   - `auth.yaml:489` declara `role` OPCIONAL en la respuesta de
+ *   - El contrato de `auth` declara `role` OPCIONAL en la respuesta de
  *     `validate-key`. Leído en solitario, un canal de API sin rol sería legal.
- *   - `auth.service.js:381` lo devuelve siempre; el campo del modelo es un enum
- *     con `default: 'CUSTOMER'` (`account.model.js:50-56`).
- *   - `handler.lua:143` cubre igualmente el caso: `body.role or "CUSTOMER"`.
- *   - `handler.lua:219-226` es la guarda única de la pasarela: si la identidad
- *     no está completa y bien formada, Kong sale con 401 y NO proxya. Además
- *     borra las tres cabeceras incondicionalmente antes de cualquier
- *     bifurcación (`handler.lua:184-188`), de modo que las del cliente nunca
- *     pasan.
+ *   - `authService.validateKey` lo devuelve siempre; el campo del modelo de
+ *     cuenta es un enum con `default: 'CUSTOMER'`, así que tampoco un documento
+ *     antiguo puede llegar sin él.
+ *   - `fetch_verdict`, en el plugin `space-auth`, cubre igualmente el caso:
+ *     `body.role or "CUSTOMER"`.
+ *   - `SpaceAuthHandler:access` es la guarda única de la pasarela: si la
+ *     identidad no está completa y bien formada, Kong sale con 401 y NO proxya.
+ *     Esa misma función borra las tres cabeceras incondicionalmente antes de
+ *     cualquier bifurcación, de modo que las del cliente nunca pasan.
+ *
+ * Se citan por nombre de función y no por número de línea a propósito: las
+ * líneas se mueven y la referencia envejece sin que nada avise.
  *
  * Conclusión: por el camino legítimo, estas comprobaciones son inalcanzables.
  * Sólo disparan ante quien alcanza el servicio directamente, saltándose la

@@ -112,9 +112,9 @@ describe('POST /v1/pricing/checkout/create-session — identidad de la pasarela'
   /**
    * Las tres cabeceras son obligatorias y sus valores están cerrados. No es
    * rigor decorativo: `space-auth` las borra incondicionalmente y sólo las
-   * escribe tras validar rol y canal contra estos mismos enums
-   * (`handler.lua:221-232`), de modo que una petición sin ellas —o con un valor
-   * que no está en el enum— no puede venir de Kong. Viene de alguien que ha
+   * escribe tras validar rol y canal contra estos mismos enums, en
+   * `SpaceAuthHandler:access`, de modo que una petición sin ellas —o con un
+   * valor que no está en el enum— no puede venir de Kong. Viene de alguien que ha
    * alcanzado el servicio directamente, y ese es precisamente el caso que no se
    * debe servir. Se responde 401 y no 403: no hay credencial válida a la que
    * negarle un permiso, no hay credencial en absoluto.

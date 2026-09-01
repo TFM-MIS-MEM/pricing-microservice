@@ -23,8 +23,18 @@ module.exports = {
   coverageDirectory: 'coverage',
   coverageReporters: ['text', 'lcov', 'clover'],
 
-  // Trinquete de cobertura: valores medidos con la suite de contrato en verde
-  // (`pnpm test:coverage`, 1/09/2026). No es un objetivo, es un suelo: impide
+  // Trinquete de cobertura. Medido con la suite de contrato en verde
+  // (`pnpm test:coverage`, 1/09/2026): 76,89 / 56,25 / 66,66 / 78,31. Se fija
+  // REDONDEADO A LA BAJA al entero, porque clavar el valor exacto pone la CI en
+  // rojo por dos centésimas ante cualquier refactor que no cambie nada
+  // sustancial. Sigue siendo trinquete: una caída real lo cruza igual.
+  //
+  // Para la comparación con la base (`4596add`, 37 pruebas heredadas): 76,25 /
+  // 50,57 / 59,37 / 77,97. Retirar aquellas pruebas y dejar 24 de contrato NO
+  // bajó la cobertura, la subió: eran en su mayoría pruebas de esquema de
+  // modelo, que no atraviesan el camino HTTP donde vive el contrato.
+  //
+  // No es un objetivo, es un suelo: impide
   // que un cambio futuro en `src/` venga acompañado de una pérdida de cobertura
   // sin que la suite lo diga. Al subir, se sube también este bloque.
   //
@@ -50,10 +60,10 @@ module.exports = {
   //     que el módulo cargue.
   coverageThreshold: {
     global: {
-      statements: 76.89,
-      branches: 56.25,
-      functions: 66.66,
-      lines: 78.31,
+      statements: 76,
+      branches: 56,
+      functions: 66,
+      lines: 78,
     },
   },
 
