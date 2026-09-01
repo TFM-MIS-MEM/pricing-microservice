@@ -16,10 +16,17 @@ Al retirarse estaban **todos en verde**: 37 pruebas en 7 ficheros, medidas con
 | `health.test.js` | 3 |
 | `securityHeaders.test.js` | 2 |
 
-`ESTADO.md` del repositorio de documentación cifra esta suite en 35. El número
-bueno es 37: es el que devuelve el ejecutor, y el desglose de arriba sale de su
-salida en JSON. La diferencia está en dos pruebas anidadas dentro de un
-`describe` interior, que un recuento a ojo se salta con facilidad.
+`AUDITORIA.md` §2.5 y `ESTADO.md`, en el repositorio de documentación, cifran
+esta suite en 35. **Las dos cifras son correctas, cada una en su fecha:** la
+auditoría contó 6 ficheros y 35 casos ---la suma de los seis primeros de la
+tabla---, y `securityHeaders.test.js`, con los 2 restantes, se añadió después,
+en la sesión 3, al acotar la exención de CSP de `/docs`. Al retirarlas eran, por
+tanto, 37 en 7 ficheros.
+
+El desglose sale de la salida en JSON del ejecutor sobre `4596add`, no de un
+recuento a ojo: contar `it(` a mano da 30, porque se saltan las pruebas anidadas
+en un `describe` interior de `subscriptionRecord` y de `usageLog`. Ese descuadre
+es de la cuenta manual y no tiene nada que ver con la diferencia entre 35 y 37.
 
 ## Por qué se retiran
 
