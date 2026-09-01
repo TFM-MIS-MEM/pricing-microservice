@@ -33,10 +33,21 @@ services:
       LOG_LEVEL: ${LOG_LEVEL:-debug}
       MONGODB_URI: mongodb://pricing-mongodb:27017/pricing-db
       INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:-dev_internal_secret_key_789}
-      JWT_SECRET: ${JWT_SECRET}
       STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
+      STRIPE_PRICE_PRO: ${STRIPE_PRICE_PRO}
+      STRIPE_PRICE_BUSINESS: ${STRIPE_PRICE_BUSINESS}
     ports:
-      - "3001:3000"   # Host 3001 → Container 3000 (auth ocupa el 3000 del host)
+      # Publicado SÓLO en el bucle local. Desde #65 el servicio confía en las
+      # cabeceras de identidad que escribe la pasarela, de modo que quien lo
+      # alcance por este puerto se declara la cuenta que quiera. Ligarlo a
+      # 127.0.0.1 deja fuera al resto de la red sin renunciar a la depuración
+      # directa ni a /docs desde el navegador —que es lo que describe el primer
+      # `servers` del contrato—.
+      #
+      # La garantía real NO es esta línea: es de red. En Kubernetes el servicio
+      # se expone como ClusterIP y sólo la pasarela lo alcanza. Esto es
+      # comodidad de desarrollo con el filo romo.
+      - "127.0.0.1:3001:3000"   # Host 3001 → Container 3000 (auth ocupa el 3000 del host)
     volumes:
       - .:/app:cached
       - /app/node_modules

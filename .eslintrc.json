@@ -11,8 +11,14 @@
   },
   "rules": {
     "no-console": "warn",
-    "no-unused-vars": ["error", { "argsIgnorePattern": "^_" }],
+    "no-unused-vars": [
+      "error",
+      {
+        "argsIgnorePattern": "^_"
+      }
+    ],
     "no-process-exit": "off",
     "prettier/prettier": "error"
-  }
+  },
+  "ignorePatterns": ["node_modules", "coverage", "tests/legacy"]
 }

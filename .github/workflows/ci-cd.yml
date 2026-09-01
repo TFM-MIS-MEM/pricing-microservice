@@ -56,8 +56,16 @@ jobs:
       # -----------------------------------------------
       # 6. Security audit
       # -----------------------------------------------
+      # `--prod`: audita el árbol que se despliega. Los 23 avisos abiertos son
+      # todos de `axios@0.21.4`, alcanzable sólo por
+      # `jest-openapi > openapi-validator > axios`, que además NO lo carga: la
+      # única mención en el paquete compilado es un `import type` en un `.d.ts`.
+      # Es una dependencia fantasma de una herramienta de test. Forzar su
+      # resolución con `overrides` silenciaría al escáner sin cambiar nada de lo
+      # que se ejecuta, e `ignoreGhsas` sería deuda nueva por cada aviso futuro
+      # de axios. `pnpm audit --prod` sobre el árbol de producción: sin avisos.
       - name: Security audit
-        run: pnpm audit
+        run: pnpm audit --prod
 
       # -----------------------------------------------
       # 7. Tests + Coverage

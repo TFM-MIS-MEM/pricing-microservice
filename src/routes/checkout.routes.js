@@ -3,6 +3,7 @@
 const { Router } = require('express');
 const Joi = require('joi');
 const validate = require('../middlewares/validate');
+const { PLAN_IDS } = require('../config/plans');
 const { authenticate } = require('../middlewares/auth.middleware');
 const { createSession } = require('../controllers/checkout.controller');
 
@@ -23,7 +24,12 @@ const isUrl = (value, helpers) => {
 
 const createSessionSchema = {
   body: Joi.object({
-    planId: Joi.string().required().description('Stripe Price ID of the plan to subscribe to'),
+    // El contrato declara `planId` como enum, no como Price ID de Stripe: la
+    // correspondencia con el precio es asunto del servicio (véase config/plans).
+    planId: Joi.string()
+      .valid(...PLAN_IDS)
+      .required()
+      .description('Plan del contrato: free | pro | business'),
     successUrl: Joi.string()
       .custom(isUrl)
       .required()
@@ -37,68 +43,6 @@ const createSessionSchema = {
   }),
 };
 
-/**
- * @openapi
- * /v1/pricing/checkout/create-session:
- *   post:
- *     tags:
- *       - Checkout
- *     summary: Create a Stripe Checkout Session
- *     description: >
- *       Creates a hosted Stripe Checkout Session for a subscription plan.
- *       The caller must supply a valid JWT issued by auth-microservice.
- *       Returns a Stripe-hosted URL to redirect the user to complete payment.
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - planId
- *               - successUrl
- *               - cancelUrl
- *             properties:
- *               planId:
- *                 type: string
- *                 description: Stripe Price ID of the plan (e.g. price_xxx). SPACE integration will resolve plan slugs in Issue #13.
- *                 example: price_1OqABC2eZvKYlo2CxYnOj3mI
- *               successUrl:
- *                 type: string
- *                 format: uri
- *                 example: https://app.example.com/dashboard?session_id={CHECKOUT_SESSION_ID}
- *               cancelUrl:
- *                 type: string
- *                 format: uri
- *                 example: https://app.example.com/pricing
- *     responses:
- *       201:
- *         description: Checkout session created successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 status:
- *                   type: string
- *                   example: success
- *                 data:
- *                   type: object
- *                   properties:
- *                     url:
- *                       type: string
- *                       format: uri
- *                       description: Stripe-hosted checkout URL to redirect the user to
- *                       example: https://checkout.stripe.com/pay/cs_test_xxx
- *       400:
- *         description: Validation error
- *       401:
- *         description: Missing or invalid JWT
- *       500:
- *         description: Stripe configuration error or internal error
- */
 router.post('/create-session', authenticate, validate(createSessionSchema), createSession);
 
 module.exports = router;

@@ -7,30 +7,34 @@ const AppError = require('../utils/AppError');
 const stripe = new Stripe(config.stripe.secretKey);
 
 /**
- * Creates a Stripe Checkout Session for a subscription.
+ * Crea una sesión de pago para una suscripción.
+ *
+ * Recibe el Price ID ya resuelto: la correspondencia plan→precio es del dominio
+ * y vive en `config/plans`, no aquí.
  *
  * @param {object} params
- * @param {string} params.userId     - Platform user ID (stored as client_reference_id for webhook recovery)
- * @param {string} params.planId     - Stripe Price ID. Until Issue #13 (SPACE integration), the client
- *                                     provides the Stripe Price ID directly.
- * @param {string} params.successUrl - Redirect URL on successful payment
- * @param {string} params.cancelUrl  - Redirect URL on cancelled payment
- * @returns {Promise<string>} Stripe hosted checkout URL
+ * @param {string} params.accountId  - Cuenta propietaria, tomada de X-Account-Id.
+ *                                     Viaja como `client_reference_id` para poder
+ *                                     recuperarla al recibir el evento.
+ * @param {string} params.priceId    - Price ID de la pasarela de pago.
+ * @param {string} params.successUrl - Redirección tras el pago
+ * @param {string} params.cancelUrl  - Redirección si se cancela
+ * @returns {Promise<{sessionId: string, url: string}>}
  */
-const createCheckoutSession = async ({ userId, planId, successUrl, cancelUrl }) => {
+const createCheckoutSession = async ({ accountId, priceId, successUrl, cancelUrl }) => {
   if (!config.stripe.secretKey) {
     throw new AppError('Stripe is not configured', 500);
   }
 
   const session = await stripe.checkout.sessions.create({
     mode: 'subscription',
-    line_items: [{ price: planId, quantity: 1 }],
-    client_reference_id: userId,
+    line_items: [{ price: priceId, quantity: 1 }],
+    client_reference_id: accountId,
     success_url: successUrl,
     cancel_url: cancelUrl,
   });
 
-  return session.url;
+  return { sessionId: session.id, url: session.url };
 };
 
 /**
@@ -48,7 +52,12 @@ const constructWebhookEvent = (rawBody, signature) => {
   try {
     return stripe.webhooks.constructEvent(rawBody, signature, config.stripe.webhookSecret);
   } catch {
-    throw new AppError('Invalid Stripe webhook signature', 400);
+    // 401 y no 400: la firma es la credencial con la que se autentica el evento
+    // —esta ruta va sin `space-auth` justamente por eso—, así que una firma que
+    // no verifica es una credencial inválida, no una petición malformada. Es lo
+    // que declara el contrato, que reserva su 400 para el cuerpo o la cabecera
+    // ausentes.
+    throw new AppError('The event signature does not verify', 401, 'INVALID_SIGNATURE');
   }
 };
 
