@@ -24,7 +24,7 @@
     "prepare": "husky"
   },
   "lint-staged": {
-    "*.{js,json,css,md}": [
+    "!(tests/legacy/**/*).{js,json,css,md}": [
       "prettier --write"
     ]
   },
@@ -43,11 +43,10 @@
     "express": "^4.22.2",
     "helmet": "^8.3.0",
     "joi": "^18.2.5",
-    "jsonwebtoken": "^9.0.3",
+    "js-yaml": "^4.3.2",
     "mongoose": "^8.24.4",
     "morgan": "^1.12.0",
     "stripe": "^17.7.0",
-    "swagger-jsdoc": "^6.3.0",
     "swagger-ui-express": "^5.0.1"
   },
   "devDependencies": {
@@ -58,7 +57,9 @@
     "eslint-plugin-prettier": "^5.5.6",
     "husky": "^9.1.7",
     "jest": "^29.7.0",
+    "jest-openapi": "^0.14.2",
     "lint-staged": "^15.5.2",
+    "mongodb-memory-server": "^11.2.0",
     "nodemon": "^3.1.14",
     "prettier": "^3.9.6",
     "supertest": "^7.2.2"
