@@ -30,8 +30,10 @@ services:
       - mongodb
     networks:
       - template-network
-    ports:
-      - "${PORT}:${PORT}"
+    # SIN `ports`. El servicio confía en las cabeceras de identidad que escribe
+    # la pasarela (#65), así que publicarlo permitiría a cualquiera saltársela y
+    # declararse la cuenta que quisiera. Sólo se alcanza desde la red del
+    # despliegue; en Kubernetes, como ClusterIP.
 
 volumes:
   mongo-data:

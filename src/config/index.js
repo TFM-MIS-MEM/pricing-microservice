@@ -11,7 +11,6 @@ const config = {
   isTest: process.env.NODE_ENV === 'test',
   apiTitle: process.env.API_TITLE || 'Pricing Microservice API',
   apiDescription: process.env.API_DESCRIPTION || 'OAS documentation for this Microservice REST API',
-  jwtSecret: process.env.JWT_SECRET,
   internalApiSecret: process.env.INTERNAL_API_SECRET,
   stripe: {
     secretKey: process.env.STRIPE_SECRET_KEY,

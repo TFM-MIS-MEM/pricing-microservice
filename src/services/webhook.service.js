@@ -28,14 +28,15 @@ const markProcessed = async (eventId) => {
 
 /**
  * checkout.session.completed
- * Creates or updates the SubscriptionRecord for the user.
+ * Crea o actualiza el SubscriptionRecord de la cuenta. `client_reference_id`
+ * lleva el `accountId` que se fijó al crear la sesión de pago.
  */
 const handleCheckoutCompleted = async (session) => {
-  const userId = session.client_reference_id;
+  const accountId = session.client_reference_id;
   const stripeCustomerId = session.customer;
   const stripeSubscriptionId = session.subscription;
 
-  if (!userId || !stripeSubscriptionId) {
+  if (!accountId || !stripeSubscriptionId) {
     logger.warn('checkout.session.completed missing client_reference_id or subscription', {
       session,
     });
@@ -47,7 +48,7 @@ const handleCheckoutCompleted = async (session) => {
   await SubscriptionRecord.findOneAndUpdate(
     { stripeSubscriptionId },
     {
-      userId,
+      accountId,
       stripeCustomerId,
       stripeSubscriptionId,
       status: subscription.status,
@@ -57,7 +58,7 @@ const handleCheckoutCompleted = async (session) => {
     { upsert: true, new: true, runValidators: true },
   );
 
-  logger.info(`SubscriptionRecord upserted for user ${userId}`);
+  logger.info(`SubscriptionRecord upserted for account ${accountId}`);
 };
 
 /**
