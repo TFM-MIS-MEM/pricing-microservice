@@ -33,6 +33,34 @@ info:
       efectivo** (inmediatamente en las mejoras, al cierre del periodo en las
       reducciones). Lo consume el servicio de reconocimiento facial para
       congelar o descongelar galerías.
+
+    ## Respuestas declaradas
+
+    Se declara lo que es una decisión, no lo que es un fallo.
+
+    - Toda operación **alcanzable a través de la pasarela** declara `429`. Lo
+      que determina el `429` no es que la operación esté protegida, sino que la
+      pasarela la alcance: el limitador es global y no mira credenciales.
+    - Toda operación con `security` declara además `401`.
+    - Toda operación que admite `apiKeyAuth` declara además `503` y `403`.
+    - Se declara `403` también en las operaciones que pueden denegarse por
+      plan, cuota o estado del recurso, con los códigos de dominio propios.
+    - No se declaran las respuestas accidentales (`500`, `502`, `504`) ni las
+      de plataforma (`404` de ruta inexistente, `413`, *preflight* de CORS).
+    - Las respuestas originadas en la pasarela cumplen `ErrorReport` igual que
+      las del servicio. La excepción conocida hoy es el `429`; ver
+      `TFM-MIS-MEM/docs#82`.
+
+    El `403 ACCOUNT_SUSPENDED` y el `503 AUTH_UNAVAILABLE` los emite la
+    pasarela y **solo pueden darse en el canal de API**: dependen de validar la
+    API KEY contra `auth`, mientras que el JWT del canal web se verifica por
+    firma sin salir de la pasarela. OpenAPI no sabe atar una respuesta a un
+    esquema de seguridad concreto, así que esa restricción va en la descripción
+    de cada respuesta, en prosa.
+
+    En las operaciones que ya declaran un `403` con código de dominio, el `403`
+    de la pasarela puede llegar igualmente: no se ha reescrito ningún código de
+    dominio para reflejarlo.
   version: 1.0.0
 
 servers:
@@ -107,6 +135,8 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '404':
           $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
 
   /v1/pricing/subscription/status:
     get:
@@ -157,6 +187,8 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '404':
           $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
 
   /v1/pricing/subscription/update:
     patch:
@@ -211,6 +243,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorReport'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
 
   /v1/pricing/subscription/addons/{addonId}:
     parameters:
@@ -285,6 +319,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorReport'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
     delete:
       tags: [Complementos]
       summary: Cancelar un complemento
@@ -324,6 +360,8 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '404':
           $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
 
   /v1/pricing/subscription:
     delete:
@@ -362,6 +400,8 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '404':
           $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
 
   /v1/pricing/subscription/usage:
     get:
@@ -462,6 +502,8 @@ paths:
                 $ref: '#/components/schemas/ErrorReport'
         '429':
           $ref: '#/components/responses/TooManyRequests'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
 
   /v1/pricing/billing/portal:
     post:
@@ -504,6 +546,8 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '404':
           $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
 
   /v1/pricing/webhooks/stripe:
     post:
@@ -522,6 +566,15 @@ paths:
 
         Es el punto donde se detecta que un cambio de plan se ha hecho efectivo
         y, en consecuencia, donde se publica `subscription.plan_changed`.
+
+        Aunque no lleva credencial de la plataforma, **está en una ruta
+        pública de la pasarela y el limitador de tasa cuenta desde la primera
+        petición**, de ahí que declare `429`. Conviene tenerlo presente: la
+        pasarela de pago **reintenta ante cualquier respuesta distinta de
+        `2xx`**, de modo que un `429` no pierde el evento, se lo devuelve por la
+        vía del reintento ---el mismo camino que absorbe la idempotencia de
+        `idempotence_keys`---. No declara `503` ni `403` porque esta ruta no
+        valida credencial alguna en la pasarela.
 
         **Patrón:** STATE TRANSITION OPERATION.
       security: []
@@ -549,6 +602,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorReport'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
 
 components:
 
@@ -671,7 +726,41 @@ components:
             $ref: '#/components/schemas/ErrorReport'
 
     TooManyRequests:
-      description: Límite de tasa superado
+      description: |
+        Límite de tasa superado.
+
+        Lo emite el plugin `rate-limiting` de la pasarela, no el servicio.
+        **Su cuerpo no cumple hoy este esquema**: la pasarela responde
+        `{"message": ..., "request_id": ...}`, sin `code`. El esquema declarado
+        aquí es el que la respuesta debe cumplir, y la divergencia se sigue en
+        `TFM-MIS-MEM/docs#82`. El campo `request_id` es un detalle de la
+        implementación de la pasarela y deliberadamente **no** forma parte de
+        `ErrorReport`.
+
+        Alcance, que no es uniforme: en las rutas protegidas el plugin de
+        autenticación corta antes que el limitador, de modo que este `429` solo
+        alcanza a un llamante **ya autenticado**; en las rutas públicas de
+        `auth` el limitador cuenta desde la primera petición. Se sigue en
+        `TFM-MIS-MEM/docs#83`.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorReport'
+
+    ServiceUnavailable:
+      description: |
+        La pasarela no ha podido resolver la credencial porque el servicio de
+        autenticación no responde (`AUTH_UNAVAILABLE`).
+
+        **Solo puede producirse en el canal de API.** La API KEY es una cadena
+        opaca y exige consultar a `auth`; el JWT del canal web se valida por
+        firma dentro de la propia pasarela, que no consulta a `auth`, de modo
+        que ese canal sigue operando aunque `auth` esté caído. OpenAPI no sabe
+        atar una respuesta a un esquema de seguridad concreto, así que la
+        restricción se declara aquí en prosa.
+
+        La pasarela **no cachea** este veredicto: servir uno caducado alargaría
+        en silencio la ventana de revocación.
       content:
         application/json:
           schema:
