@@ -1,0 +1,21 @@
+contrato renovacion-1792705402513: HTTP 201
+[21:43:22] inicio: {"resetTimeStamp":"2026-10-22T21:44:22.550Z","consumed":0}
+[21:43:22] primer periodo, llamada 1: eval=true
+[21:43:22] primer periodo, llamada 2: eval=true
+[21:43:22] primer periodo, llamada 3: eval=true
+[21:43:22] primer periodo, llamada 4: eval=true
+[21:43:22] primer periodo, llamada 5: eval=true
+[21:43:22] primer periodo, llamada 6: eval=true
+[21:43:22] primer periodo, llamada 7: eval=false
+[21:43:22] tras agotar: {"resetTimeStamp":"2026-10-22T21:44:22.550Z","consumed":9}
+[21:44:23] pasado el reinicio de 21:44:22:
+[21:44:23] llamada 1: eval=true  minuto={"resetTimeStamp":"2026-10-22T21:45:22.550Z","consumed":1.5}
+[21:44:23] llamada 2: eval=true  minuto={"resetTimeStamp":"2026-10-22T21:45:22.550Z","consumed":3}
+[21:44:23] llamada 3: eval=true  minuto={"resetTimeStamp":"2026-10-22T21:45:22.550Z","consumed":4.5}
+[21:44:23] llamada 4: eval=true  minuto={"resetTimeStamp":"2026-10-22T21:45:22.550Z","consumed":6}
+[21:44:23] llamada 5: eval=true  minuto={"resetTimeStamp":"2026-10-22T21:45:22.550Z","consumed":7.5}
+[21:44:23] llamada 6: eval=true  minuto={"resetTimeStamp":"2026-10-22T21:45:22.550Z","consumed":9}
+[21:44:23] llamada 7: eval=false  minuto={"resetTimeStamp":"2026-10-22T21:45:22.550Z","consumed":9}
+[21:44:23] llamada 8: eval=false  minuto={"resetTimeStamp":"2026-10-22T21:45:22.550Z","consumed":9}
+[21:44:23] llamada 9: eval=false  minuto={"resetTimeStamp":"2026-10-22T21:45:22.550Z","consumed":9}
+[21:44:23] llamada 10: eval=false  minuto={"resetTimeStamp":"2026-10-22T21:45:22.550Z","consumed":9}

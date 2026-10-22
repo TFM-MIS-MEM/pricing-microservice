@@ -1,0 +1,33 @@
+SPACE v1.7.1: un límite renovable solo se aplicaba en su primer periodo.
+
+`_resetRenewableUsageLevels` calculaba el nuevo `resetTimeStamp` en una variable
+local que nunca escribía en el contrato, y ponía el consumo a cero. Con el
+instante de reinicio en el pasado, cada evaluación posterior volvía a poner el
+contador a cero antes de sumar, y el límite dejaba de aplicarse (NOTAS.md §5.3
+del estudio de la sesión 22). Avanzar un solo periodo tampoco basta si la cuenta
+estuvo inactiva más de uno: se avanza hasta pasar el instante actual.
+
+diff --git a/api/src/main/services/ContractService.ts b/api/src/main/services/ContractService.ts
+index 16624ae..f8a70a6 100644
+--- a/api/src/main/services/ContractService.ts
++++ b/api/src/main/services/ContractService.ts
+@@ -820,10 +820,15 @@ class ContractService {
+           contractToUpdate.contractedServices[serviceName],
+           organizationId
+         );
+-        currentResetTimeStamp = addPeriodToDate(
+-          currentResetTimeStamp,
+-          pricing.usageLimits![usageLimitName].period!
+-        );
++        const period = pricing.usageLimits![usageLimitName].period!;
++        const now = new Date();
++        let nextResetTimeStamp = new Date(currentResetTimeStamp);
++        // Advance whole periods until the reset lies in the future, and store it:
++        // a reset left in the past makes every later evaluation reset the level again.
++        while (period.value > 0 && !isAfter(nextResetTimeStamp, now)) {
++          nextResetTimeStamp = addPeriodToDate(nextResetTimeStamp, period);
++        }
++        contractToUpdate.usageLevels[serviceName][usageLimitName].resetTimeStamp = nextResetTimeStamp;
+         contractToUpdate.usageLevels[serviceName][usageLimitName].consumed = 0;
+       }
+     }
