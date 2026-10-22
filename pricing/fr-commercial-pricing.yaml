@@ -1,0 +1,240 @@
+saasName: FRSaaS
+syntaxVersion: "3.1"
+version: "1.1"
+createdAt: "2026-10-22"
+currency: EUR
+features:
+  faceDetection:
+    description: Localiza los rostros de una imagen. Consume 1 unidad de capacidad.
+    valueType: BOOLEAN
+    defaultValue: true
+    expression: pricingContext['features']['faceDetection'] && subscriptionContext['capacityUnitsPerMinute'] < pricingContext['usageLimits']['capacityUnitsPerMinute'] && subscriptionContext['capacityUnitsPerHour'] < pricingContext['usageLimits']['capacityUnitsPerHour'] && subscriptionContext['capacityUnitsPerMonth'] < pricingContext['usageLimits']['capacityUnitsPerMonth']
+    type: DOMAIN
+  pairVerification:
+    description: Comprueba si dos imágenes son de la misma persona. Consume 3 unidades de capacidad, con cualquier modelo.
+    valueType: BOOLEAN
+    defaultValue: true
+    expression: pricingContext['features']['pairVerification'] && subscriptionContext['capacityUnitsPerMinute'] < pricingContext['usageLimits']['capacityUnitsPerMinute'] && subscriptionContext['capacityUnitsPerHour'] < pricingContext['usageLimits']['capacityUnitsPerHour'] && subscriptionContext['capacityUnitsPerMonth'] < pricingContext['usageLimits']['capacityUnitsPerMonth']
+    type: DOMAIN
+  galleryManagement:
+    description: Crear, consultar, modificar y borrar galerías. No consume unidades de capacidad.
+    valueType: BOOLEAN
+    defaultValue: true
+    expression: pricingContext['features']['galleryManagement']
+    type: DOMAIN
+  identityManagement:
+    description: Registrar identidades y añadirles rostros a partir de una imagen (1,5 unidades por rostro). Consultar, modificar y borrar no consume unidades.
+    valueType: BOOLEAN
+    defaultValue: true
+    expression: pricingContext['features']['identityManagement'] && subscriptionContext['capacityUnitsPerMinute'] < pricingContext['usageLimits']['capacityUnitsPerMinute'] && subscriptionContext['capacityUnitsPerHour'] < pricingContext['usageLimits']['capacityUnitsPerHour'] && subscriptionContext['capacityUnitsPerMonth'] < pricingContext['usageLimits']['capacityUnitsPerMonth']
+    type: DOMAIN
+  identityVerification:
+    description: Comprueba una imagen contra los rostros registrados de una identidad. Consume 1,5 unidades de capacidad.
+    valueType: BOOLEAN
+    defaultValue: true
+    expression: pricingContext['features']['identityVerification'] && subscriptionContext['capacityUnitsPerMinute'] < pricingContext['usageLimits']['capacityUnitsPerMinute'] && subscriptionContext['capacityUnitsPerHour'] < pricingContext['usageLimits']['capacityUnitsPerHour'] && subscriptionContext['capacityUnitsPerMonth'] < pricingContext['usageLimits']['capacityUnitsPerMonth']
+    type: DOMAIN
+  modelXs:
+    description: Modelo de reconocimiento EdgeFace xs.
+    valueType: BOOLEAN
+    defaultValue: true
+    expression: pricingContext['features']['modelXs']
+    type: DOMAIN
+  webChannel:
+    description: Acceso al servicio desde el panel web, con sesión de usuario.
+    valueType: BOOLEAN
+    defaultValue: true
+    expression: pricingContext['features']['webChannel']
+    type: DOMAIN
+  apiChannel:
+    description: Acceso programático al servicio con una clave de API.
+    valueType: BOOLEAN
+    defaultValue: false
+    expression: pricingContext['features']['apiChannel']
+    type: INTEGRATION
+    integrationType: API
+  embeddingExtraction:
+    description: Devuelve el vector de características de un rostro. Solo por el canal API. Consume 1,5 unidades de capacidad.
+    valueType: BOOLEAN
+    defaultValue: false
+    expression: pricingContext['features']['embeddingExtraction'] && subscriptionContext['capacityUnitsPerMinute'] < pricingContext['usageLimits']['capacityUnitsPerMinute'] && subscriptionContext['capacityUnitsPerHour'] < pricingContext['usageLimits']['capacityUnitsPerHour'] && subscriptionContext['capacityUnitsPerMonth'] < pricingContext['usageLimits']['capacityUnitsPerMonth']
+    type: DOMAIN
+  gallerySearch:
+    description: Identificación 1:N, busca a quién pertenece un rostro dentro de una galería. Consume 1,5 unidades más 0,05 por cada 1.000 rostros de la galería.
+    valueType: BOOLEAN
+    defaultValue: false
+    expression: pricingContext['features']['gallerySearch'] && subscriptionContext['capacityUnitsPerMinute'] < pricingContext['usageLimits']['capacityUnitsPerMinute'] && subscriptionContext['capacityUnitsPerHour'] < pricingContext['usageLimits']['capacityUnitsPerHour'] && subscriptionContext['capacityUnitsPerMonth'] < pricingContext['usageLimits']['capacityUnitsPerMonth']
+    type: DOMAIN
+  configurableThreshold:
+    description: Permite fijar el umbral de decisión en las operaciones que comparan rostros. Por omisión, el umbral está calibrado para una falsa aceptación de cada 10.000.
+    valueType: BOOLEAN
+    defaultValue: false
+    expression: pricingContext['features']['configurableThreshold']
+    type: DOMAIN
+  modelS:
+    description: Modelo de reconocimiento EdgeFace s.
+    valueType: BOOLEAN
+    defaultValue: false
+    expression: pricingContext['features']['modelS']
+    type: DOMAIN
+  modelBase:
+    description: Modelo de reconocimiento EdgeFace base, el más preciso de los tres.
+    valueType: BOOLEAN
+    defaultValue: false
+    expression: pricingContext['features']['modelBase']
+    type: DOMAIN
+usageLimits:
+  maxFaces:
+    description: Rostros indexados en el conjunto de las galerías de la cuenta.
+    valueType: NUMERIC
+    defaultValue: 100
+    unit: face
+    type: NON_RENEWABLE
+    trackable: true
+    linkedFeatures:
+      - identityManagement
+  maxGalleries:
+    description: Galerías de la cuenta.
+    valueType: NUMERIC
+    defaultValue: 1
+    unit: gallery
+    type: NON_RENEWABLE
+    trackable: true
+    linkedFeatures:
+      - galleryManagement
+  capacityUnitsPerMinute:
+    description: Límite instantáneo. Unidades de capacidad consumibles en un minuto (una unidad equivale a una detección en una imagen de 480 x 640).
+    valueType: NUMERIC
+    defaultValue: 8
+    unit: capacity unit
+    type: RENEWABLE
+    period:
+      value: 1
+      unit: MIN
+    linkedFeatures:
+      - faceDetection
+      - pairVerification
+      - identityManagement
+      - identityVerification
+      - embeddingExtraction
+      - gallerySearch
+  capacityUnitsPerHour:
+    description: Límite sostenido. Unidades de capacidad consumibles en una hora.
+    valueType: NUMERIC
+    defaultValue: 48
+    unit: capacity unit
+    type: RENEWABLE
+    period:
+      value: 1
+      unit: HOUR
+    linkedFeatures:
+      - faceDetection
+      - pairVerification
+      - identityManagement
+      - identityVerification
+      - embeddingExtraction
+      - gallerySearch
+  capacityUnitsPerMonth:
+    description: Límite a largo plazo. Unidades de capacidad consumibles en un mes.
+    valueType: NUMERIC
+    defaultValue: 4800
+    unit: capacity unit
+    type: RENEWABLE
+    period:
+      value: 1
+      unit: MONTH
+    linkedFeatures:
+      - faceDetection
+      - pairVerification
+      - identityManagement
+      - identityVerification
+      - embeddingExtraction
+      - gallerySearch
+plans:
+  FREE:
+    description: Autenticación biométrica completa desde el panel web, para probar el servicio.
+    price: 0.0
+    unit: account/month
+    features: null
+    usageLimits: null
+  PRO:
+    description: Uso personal o de un equipo pequeño, con acceso por API e identificación 1:N.
+    price: 1.47
+    unit: account/month
+    features:
+      apiChannel:
+        value: true
+      embeddingExtraction:
+        value: true
+      gallerySearch:
+        value: true
+      modelS:
+        value: true
+    usageLimits:
+      maxFaces:
+        value: 5000
+      maxGalleries:
+        value: 5
+      capacityUnitsPerMinute:
+        value: 41
+      capacityUnitsPerHour:
+        value: 250
+      capacityUnitsPerMonth:
+        value: 25000
+  BUSINESS:
+    description: Uso de una organización, con el modelo base y el umbral de decisión configurable.
+    price: 12.38
+    unit: account/month
+    features:
+      apiChannel:
+        value: true
+      embeddingExtraction:
+        value: true
+      gallerySearch:
+        value: true
+      modelS:
+        value: true
+      modelBase:
+        value: true
+      configurableThreshold:
+        value: true
+    usageLimits:
+      maxFaces:
+        value: 50000
+      maxGalleries:
+        value: 100000000
+      capacityUnitsPerMinute:
+        value: 416
+      capacityUnitsPerHour:
+        value: 2500
+      capacityUnitsPerMonth:
+        value: 250000
+addOns:
+  baseModel:
+    description: Acceso al modelo base sin cambiar de plan. No añade capacidad.
+    availableFor:
+      - PRO
+    price: 1.21
+    unit: account/month
+    features:
+      modelBase:
+        value: true
+  expansionPack:
+    description: Añade la capacidad y los rostros de una cuenta Pro, hasta tres veces.
+    availableFor:
+      - PRO
+    price: 1.21
+    unit: pack/month
+    subscriptionConstraints:
+      minQuantity: 1
+      maxQuantity: 3
+      quantityStep: 1
+    usageLimitsExtensions:
+      maxFaces:
+        value: 5000
+      capacityUnitsPerMinute:
+        value: 41
+      capacityUnitsPerHour:
+        value: 250
+      capacityUnitsPerMonth:
+        value: 25000
