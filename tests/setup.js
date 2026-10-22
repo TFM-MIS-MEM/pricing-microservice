@@ -39,6 +39,11 @@ process.env.INTERNAL_API_SECRET = 'internal_placeholder_para_la_bateria_de_prueb
 process.env.STRIPE_PRICE_PRO = 'price_placeholder_pro';
 process.env.STRIPE_PRICE_BUSINESS = 'price_placeholder_business';
 
+// `src/config/space.js` tampoco carga sin SPACE (#51). La suite no lo alcanza:
+// las pruebas que llegan a `space.service` doblan `fetch` o el propio módulo.
+process.env.SPACE_URL = 'http://space.invalid:3000';
+process.env.SPACE_API_KEY = 'org_placeholder_para_la_bateria_de_pruebas';
+
 // Ruta resuelta desde este fichero: nunca sale del repositorio, de modo que
 // funciona igual en la máquina de quien desarrolla, en Docker y en la CI.
 jestOpenAPI(path.resolve(__dirname, '..', 'openapi', 'pricing.yaml'));
