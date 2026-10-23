@@ -3,6 +3,8 @@
 const SubscriptionRecord = require('../models/SubscriptionRecord');
 const IdempotencyKey = require('../models/IdempotencyKey');
 const { retrieveSubscription } = require('./stripe.service');
+const { setPlan } = require('./space.service');
+const { planIdFor } = require('../config/plans');
 const logger = require('../utils/logger');
 
 /**
@@ -30,6 +32,10 @@ const markProcessed = async (eventId) => {
  * checkout.session.completed
  * Crea o actualiza el SubscriptionRecord de la cuenta. `client_reference_id`
  * lleva el `accountId` que se fijó al crear la sesión de pago.
+ *
+ * Después nova el contrato de la cuenta en SPACE al plan comprado (#51), que
+ * sale del precio de la suscripción. Si SPACE falla, se lanza: el evento no
+ * queda marcado y Stripe lo reintenta; el upsert del registro es idempotente.
  */
 const handleCheckoutCompleted = async (session) => {
   const accountId = session.client_reference_id;
@@ -59,20 +65,37 @@ const handleCheckoutCompleted = async (session) => {
   );
 
   logger.info(`SubscriptionRecord upserted for account ${accountId}`);
+
+  const priceId = subscription.items?.data?.[0]?.price?.id;
+  const planId = planIdFor(priceId);
+  if (!planId) {
+    // Un precio que no es de ningún plan es un catálogo desalineado: reintentar
+    // no lo arregla, así que no se lanza. Se registra para verlo.
+    logger.error(`checkout.session.completed with unknown price ${priceId}: plan not set in SPACE`);
+    return;
+  }
+  await setPlan(accountId, planId);
 };
 
 /**
  * customer.subscription.deleted
- * Marks the subscription as canceled in the local record.
+ * Marks the subscription as canceled in the local record, and takes the
+ * account back to FREE in SPACE (#51).
  */
 const handleSubscriptionDeleted = async (subscription) => {
-  await SubscriptionRecord.findOneAndUpdate(
+  const record = await SubscriptionRecord.findOneAndUpdate(
     { stripeSubscriptionId: subscription.id },
     { status: 'canceled', cancelAtPeriodEnd: false },
     { runValidators: true },
   );
 
   logger.info(`Subscription ${subscription.id} marked as canceled`);
+
+  if (!record) {
+    logger.warn(`customer.subscription.deleted for unknown subscription ${subscription.id}`);
+    return;
+  }
+  await setPlan(record.accountId, 'free');
 };
 
 /**

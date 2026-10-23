@@ -55,4 +55,16 @@ for (const [planId, envVar] of Object.entries(PRICE_ENV_VARS)) {
  */
 const priceIdFor = (planId) => priceIds[planId] || null;
 
-module.exports = { PLAN_IDS, priceIdFor };
+/**
+ * El plan de un Price ID, o `null` si no es de ningún plan de pago.
+ *
+ * Es la traducción inversa, la que necesita el receptor de Stripe para saber
+ * qué plan se compró (#51): la suscripción trae el precio, no el plan.
+ *
+ * @param {string} priceId
+ * @returns {string|null}
+ */
+const planIdFor = (priceId) =>
+  Object.keys(priceIds).find((planId) => priceIds[planId] === priceId) || null;
+
+module.exports = { PLAN_IDS, priceIdFor, planIdFor };

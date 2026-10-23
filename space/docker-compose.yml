@@ -1,0 +1,119 @@
+# ===========================================================
+# SPACE (Subscription and Pricing Access Control Engine) — evalúa el plan de
+# cada cuenta: funcionalidades, límites y consumo de unidades. Lo administra
+# pricing (contratos) y lo consulta fr-commercial (evaluación).
+#
+# Servicios: space-server + space-mongodb + space-redis
+# Redes: space-internal (propia) y tfm-network (externa, solo space-server)
+#
+# Nada publica puertos: SPACE no se expone ni a la máquina ni a la pasarela.
+# fr-commercial y pricing lo alcanzan como http://space-server:3000. Su
+# documentación pide no exponerlo, y el nginx que trae su compose limita a 20
+# peticiones/s por IP: con fr-commercial como única IP, sería el tope de todo
+# el SaaS (estudio de la sesión 22, NOTAS §5.8).
+#
+# Secretos: en space/.env (generado por scripts/dev-up.sh), sin valores por
+# omisión. `${VAR:?}` hace que `docker compose` se niegue a arrancar si falta
+# alguno. Se declaran en `environment:` y NO por `env_file`: el compose original
+# de SPACE los define en `environment:` con valores por omisión, que pisan los
+# del `.env`, y el servidor acababa firmando con `test_secret` (NOTAS §4).
+#
+# Uso: ../scripts/dev-up.sh, o, con space/.env ya creado,
+#   docker compose -f space/docker-compose.yml up --build -d
+# y después scripts/space-bootstrap.sh.
+# ===========================================================
+
+services:
+
+  space-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: tfm/space-server:1.7.1-tfm.1
+    container_name: space-server
+    restart: unless-stopped
+    environment:
+      ENVIRONMENT: production
+      SERVER_PORT: 3000
+      MONGO_URI: mongodb://${SPACE_MONGO_ROOT_USERNAME:?}:${SPACE_MONGO_ROOT_PASSWORD:?}@space-mongodb:27017/space_db?authSource=admin
+      REDIS_URL: redis://space-redis:6379
+      JWT_SECRET: ${SPACE_JWT_SECRET:?}
+      JWT_SALT: ${SPACE_JWT_SALT:?}
+      JWT_EXPIRATION: 1h
+      ADMIN_USER: ${SPACE_ADMIN_USER:?}
+      ADMIN_PASSWORD: ${SPACE_ADMIN_PASSWORD:?}
+      SPHERE_PUBLIC_URL: https://sphere.score.us.es
+      SPHERE_API_URL: https://sphere.score.us.es/api/v1
+      # Sin trabajador periódico: la tarifa lleva expresiones que SPACE ejecuta
+      # con eval(), y con sincronización automática ejecutaría código quien
+      # publicara una versión nueva en SPHERE. La versión se fija en
+      # pricing/sphere.env y se carga a mano (scripts/space-bootstrap.sh).
+      SPHERE_SYNC_ENABLED: "false"
+      SPHERE_ALLOW_LOCAL_HTTP: "false"
+    volumes:
+      # SPACE guarda aquí los YAML de las tarifas importadas; MongoDB solo
+      # guarda la ruta. Sin volumen, recrear el contenedor los pierde.
+      - space-statics:/usr/src/server/public
+    networks:
+      space-internal:
+      tfm-network:
+    depends_on:
+      space-mongodb:
+        condition: service_healthy
+      space-redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:3000/api/v1/healthcheck', r => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))\""]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+
+  space-mongodb:
+    image: mongo:7.0.16
+    container_name: space-mongodb
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${SPACE_MONGO_ROOT_USERNAME:?}
+      MONGO_INITDB_ROOT_PASSWORD: ${SPACE_MONGO_ROOT_PASSWORD:?}
+      MONGO_INITDB_DATABASE: space_db
+    volumes:
+      - space-mongo-data:/data/db
+    networks:
+      - space-internal
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh --quiet -u \"$$MONGO_INITDB_ROOT_USERNAME\" -p \"$$MONGO_INITDB_ROOT_PASSWORD\" --authenticationDatabase admin --eval \"db.adminCommand('ping')\""]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  space-redis:
+    image: redis:7.4.2
+    container_name: space-redis
+    restart: unless-stopped
+    volumes:
+      - space-redis-data:/data
+    networks:
+      - space-internal
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+
+volumes:
+  space-mongo-data:
+    name: tfm_space-mongo-data
+  space-redis-data:
+    name: tfm_space-redis-data
+  space-statics:
+    name: tfm_space-statics
+
+networks:
+  space-internal:
+    name: tfm_space-internal
+  tfm-network:
+    external: true
+    name: tfm-network
