@@ -1,7 +1,7 @@
 saasName: FRSaaS
 syntaxVersion: "3.1"
-version: "1.1"
-createdAt: "2026-10-22"
+version: "1.2"
+createdAt: "2026-10-28"
 currency: EUR
 features:
   faceDetection:
@@ -159,7 +159,7 @@ plans:
     usageLimits: null
   PRO:
     description: Uso personal o de un equipo pequeño, con acceso por API e identificación 1:N.
-    price: 1.47
+    price: 1.49
     unit: account/month
     features:
       apiChannel:
@@ -183,7 +183,7 @@ plans:
         value: 25000
   BUSINESS:
     description: Uso de una organización, con el modelo base y el umbral de decisión configurable.
-    price: 12.38
+    price: 12.65
     unit: account/month
     features:
       apiChannel:
@@ -214,7 +214,7 @@ addOns:
     description: Acceso al modelo base sin cambiar de plan. No añade capacidad.
     availableFor:
       - PRO
-    price: 1.21
+    price: 1.24
     unit: account/month
     features:
       modelBase:
@@ -223,7 +223,7 @@ addOns:
     description: Añade la capacidad y los rostros de una cuenta Pro, hasta tres veces.
     availableFor:
       - PRO
-    price: 1.21
+    price: 1.24
     unit: pack/month
     subscriptionConstraints:
       minQuantity: 1
