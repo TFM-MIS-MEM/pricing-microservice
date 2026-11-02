@@ -1,8 +1,11 @@
-# Node.js Microservice Template
+# Pricing
 
-Boilerplate profesional y escalable para los microservicios Node.js (Auth, Pricing, etc.) del Trabajo de Fin de Máster (TFM) del SaaS de Reconocimiento Facial.
+Suscripciones, pagos con Stripe y contratos de SPACE del SaaS de reconocimiento facial del TFM. Node.js, Express y MongoDB.
 
-Esta plantilla está diseñada como punto de partida para cualquier servicio backend en Node.js, incorporando todas las directrices globales del proyecto (Clean Architecture, seguridad, manejo de errores y pipelines de despliegue).
+- **Contrato:** [`openapi/pricing.yaml`](openapi/pricing.yaml), 9 operaciones. Es la fuente de verdad: si el código y el contrato discrepan, se corrige el código.
+- **Estado:** 2 de las 9 implementadas: `createCheckoutSession` y el receptor de eventos de Stripe (`handleStripeWebhook`), que al confirmarse una compra deja la cuenta en el plan comprado en SPACE, y al darse de baja, en FREE (`src/services/space.service.js`).
+- **SPACE:** la tarifa está en [`pricing/`](pricing/) (Pricing2Yaml, con la versión fijada en `pricing/sphere.env`) y la imagen de SPACE v1.7.1 con sus parches, en [`space/`](space/).
+- Parte de `node-template`, la plantilla de los microservicios Node.js del proyecto; de ahí la estructura que se describe abajo.
 
 ---
 
@@ -24,7 +27,7 @@ El código está dividido en capas lógicas estrictas para favorecer el mantenim
 En lugar de manejar errores localmente en cada controlador, se centralizan:
 
 - **`AppError` (`src/utils/AppError.js`)**: Clase extendida para lanzar errores operacionales (ej. `new AppError("User not found", 404)`).
-- **`errorHandler` (`src/middlewares/errorHandler.js`)**: Interceptador global en `src/app.js` que estandariza todas las respuestas de error en formato JSON consistente: `{ status, message, details }`. Evita fugas de información de stack trace en producción.
+- **`errorHandler` (`src/middlewares/errorHandler.js`)**: Interceptador global en `src/app.js` que estandariza todas las respuestas de error como `{ code, message, details? }`, el esquema `ErrorReport` del contrato. Evita fugas de información de stack trace en producción.
 - **`notFound` (`src/middlewares/notFound.js`)**: Captura peticiones a rutas inexistentes y lanza un error `404`.
 
 ### 3. Validación Estricta con Joi
@@ -40,13 +43,13 @@ Implementado globalmente en `src/app.js`:
 
 - **Helmet**: Protege aplicando headers HTTP seguros.
 - **CORS**: Habilita configuración controlada del intercambio cruzado de recursos.
-- **Rate Limiting (`express-rate-limit`)**: Limita peticiones por IP (ej. 100 peticiones cada 15 min en `/api`) para prevenir ataques de denegación de servicio o fuerza bruta.
+- **Sin limitador propio**: el límite de peticiones lo aplica la pasarela (Kong) antes de que la petición llegue aquí; un segundo limitador solo repartiría al mismo cliente entre dos contadores.
 
-### 5. Documentación Dinámica (Swagger / OpenAPI)
+### 5. Documentación (Swagger / OpenAPI)
 
-Las APIs se autodocumentan leyendo comentarios _JSDoc_ presentes sobre las rutas.
+La documentación se sirve desde `openapi/pricing.yaml`, el mismo fichero contra el que valida la suite de contrato; no se genera a partir de comentarios _JSDoc_.
 
-- Interfaz disponible en `/docs` (configurada vía `src/config/swagger.js`).
+- Interfaz en `/docs` y especificación en `/openapi.json` (configuradas vía `src/config/swagger.js`).
 
 ### 6. Calidad del Código y Git Hooks (Husky)
 
@@ -54,62 +57,65 @@ Se prohíbe subir código roto o mal formateado. Las herramientas actúan en pre
 
 - **ESLint & Prettier**: Formatean y analizan la sintaxis (`lint-staged`).
 - **Husky (`.husky/`)**:
-  - `pre-commit`: Dispara verificación de linter, prettier y opcionalmente testing preventivo.
+  - `pre-commit`: Ejecuta `lint-staged` (ESLint y Prettier sobre lo preparado) y la suite de pruebas completa.
   - `commit-msg`: Exige convencionales (Conventional Commits: `feat:`, `fix:`, `chore:`) interceptado mediante `@commitlint/` para estandarizar el historial.
 
 ### 7. Integración y Despliegue Continuo (CI/CD)
 
 Múltiples pipelines provistos vía GitHub Actions (`.github/workflows/`):
 
-- **`ci-cd.yml`**: Disparado en cada Push/Pull Request. Instala dependencias con `pnpm` (usando caché), linta, verifica formato y ejecuta tests unitarios.
-- **`release.yml`**: Crea versiones automáticas (Semantic Release) basadas en commits, genera Changelogs de GitHub, compila la imagen de Docker, y la sube al Container Registry (Docker Hub/GHCR) adaptándose al entorno (dev/prod).
+- **`ci-cd.yml`**: Disparado en cada push y pull request a `main`. Instala dependencias con `pnpm` (usando caché), pasa ESLint, la auditoría de seguridad de dependencias y las pruebas con cobertura.
+- **`release.yml`**: Disparado al empujar una etiqueta `v*`. Compila la imagen de Docker, la sube a Docker Hub y crea la release de GitHub con notas generadas a partir de los Conventional Commits.
 
 ---
 
 ## 🚀 Cómo Ejecutar el Proyecto
 
-El entorno utiliza **`pnpm`** como gestor de paquetes principal. Todos los entornos manejan sus archivos `.env` a través de utilidades en la carpeta `/scripts`.
+El entorno utiliza **`pnpm`** como gestor de paquetes principal. Lo habitual es levantar `pricing` con el resto de la pila mediante `scripts/dev-up.sh` del repositorio [docs](https://github.com/TFM-MIS-MEM/docs), que genera los secretos que comparte con `auth` y la pasarela, levanta SPACE y emite su clave. Para levantarlo por separado:
 
 ### Prerrequisitos
 
 - Node.js >= 20
-- Colección `pnpm` instalada (`npm install -g pnpm`)
-- MongoDB (local, o Dockerizado)
+- `pnpm` instalado (`npm install -g pnpm`)
+- MongoDB (local, o el del compose de desarrollo)
 
 ```bash
 pnpm install
 ```
 
+### Configuración
+
+```bash
+# Copia .env.example en .env (sobrescribe el .env que haya)
+pnpm run env:local
+```
+
+Después, sustituye los valores de ejemplo: `INTERNAL_API_SECRET` tiene que coincidir con el de `auth`, las claves de Stripe son las de tu cuenta de pruebas y `SPACE_API_KEY` la emite `space-bootstrap.sh`.
+
 ### Opción 1: Desarrollo Local (Hot-reload, MongoDB Local)
 
-Recomendado si ya tienes MongoDB y dependencias corriendo localmente.
-
 ```bash
-# 1. Autogenera el archivo .env consumiendo .env.local.example
-pnpm run env:local
-
-# 2. Inicia servidor con recarga usando Nodemon
-pnpm run dev:local
+pnpm run dev   # escucha en el PORT del .env (3001 en .env.example)
 ```
 
-### Opción 2: Desarrollo con Docker Compose (Recomendado)
+No uses `pnpm run dev:local`: vuelve a copiar `.env.example` antes de arrancar y descarta los valores que hayas puesto.
 
-Levanta la base de datos MongoDB y el backend Node empaquetado, compartiendo volúmenes. Con esto evitas incompatibilidades locales y conservas hot-reload.
+### Opción 2: Desarrollo con Docker Compose
+
+Levanta el servicio con recarga en caliente y su MongoDB. El servicio se publica en `127.0.0.1:3001`; MongoDB, en el puerto `27018` del anfitrión, en todas las interfaces y sin autenticación (TFM-MIS-MEM/docs#145).
 
 ```bash
-# 1. Configura el .env de docker (`Scripts` lo copia de .env.docker.example)
-pnpm run env:compose
-
-# 2. Levanta servicio y DB en contenedores (Mapea cambios a tiempo real)
-pnpm run dev:compose
+docker network create tfm-network   # solo la primera vez
+pnpm run docker:dev
 ```
+
+`pnpm run env:compose` y `pnpm run dev:compose` fallan: copian `.env.docker-compose.example`, que no existe (TFM-MIS-MEM/docs#146).
 
 ### Opción 3: Entorno Producción (Docker Compose)
 
-Compila usando el `Dockerfile` de producción (peso ligero, usuario non-root por seguridad).
+Compila usando el `Dockerfile` de producción (peso ligero, usuario non-root por seguridad). No publica el puerto del servicio, pero sí el `27017` de MongoDB en todas las interfaces (TFM-MIS-MEM/docs#145).
 
 ```bash
-pnpm run env:compose
 pnpm run docker:prod
 ```
 
@@ -129,7 +135,7 @@ pnpm run docker:prod
 ## 🏗️ Estructura Completa del Directorio
 
 ```text
-node-template/
+pricing-microservice/
 ├── .github/                # Workflows de CI/CD (GitHub Actions)
 ├── .husky/                 # Git hooks para validación de pre-commits y mensajes de commit
 ├── scripts/                # Scripts utilitarios (ej. automatizar copia de .env)
