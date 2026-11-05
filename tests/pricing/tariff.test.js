@@ -72,8 +72,11 @@ describe('Tarifa', () => {
     expect(Object.keys(pricing.plans)).toEqual(['FREE', 'PRO', 'BUSINESS']);
   });
 
-  it('se llama como la tarifa en SPHERE, que da nombre al servicio en SPACE (`frsaas`)', () => {
-    expect(yaml.load(tariffText).saasName).toBe('FRSaaS');
+  // El nombre del servicio en SPACE (`faceapi`) no sale de `saasName`, sino del
+  // nombre de la tarifa en SPHERE, en minúsculas. `saasName` se mantiene igual
+  // que en el YAML que publica SPHERE, aunque la huella lo excluya.
+  it('se llama como la tarifa en SPHERE (FaceAPI)', () => {
+    expect(yaml.load(tariffText).saasName).toBe('FaceAPI');
   });
 
   it('toda funcionalidad lleva `expression`: sin ella, SPACE la evalúa siempre a false', () => {

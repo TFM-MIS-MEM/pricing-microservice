@@ -17,12 +17,12 @@ const BASE = 'http://localhost:3000/api/v1';
 const KEY = process.env.SPACE_API_KEY;
 const U = `renovacion-${Date.now()}`;
 const H = { 'x-api-key': KEY, 'content-type': 'application/json' };
-const C = JSON.stringify({ 'frsaas-capacityUnitsPerMinute': 1.5, 'frsaas-capacityUnitsPerHour': 1.5, 'frsaas-capacityUnitsPerMonth': 1.5 });
+const C = JSON.stringify({ 'faceapi-capacityUnitsPerMinute': 1.5, 'faceapi-capacityUnitsPerHour': 1.5, 'faceapi-capacityUnitsPerMonth': 1.5 });
 const hhmmss = (d = new Date()) => d.toISOString().slice(11, 19);
 
-const minute = async () => (await (await fetch(`${BASE}/contracts/${U}`, { headers: H })).json()).usageLevels.frsaas.capacityUnitsPerMinute;
+const minute = async () => (await (await fetch(`${BASE}/contracts/${U}`, { headers: H })).json()).usageLevels.faceapi.capacityUnitsPerMinute;
 const evaluate = async () => {
-  const r = await (await fetch(`${BASE}/features/${U}/frsaas-identityVerification`, { method: 'POST', headers: H, body: C })).json();
+  const r = await (await fetch(`${BASE}/features/${U}/faceapi-identityVerification`, { method: 'POST', headers: H, body: C })).json();
   return r.eval;
 };
 
@@ -32,8 +32,8 @@ const created = await fetch(`${BASE}/contracts`, {
   body: JSON.stringify({
     userContact: { userId: U, username: U },
     billingPeriod: { autoRenew: true, renewalDays: 30 },
-    contractedServices: { frsaas: '1.1' },
-    subscriptionPlans: { frsaas: 'FREE' },
+    contractedServices: { faceapi: '1.1' },
+    subscriptionPlans: { faceapi: 'FREE' },
     subscriptionAddOns: {},
   }),
 });

@@ -25,7 +25,7 @@
 const config = require('../config/space');
 const logger = require('../utils/logger');
 
-const SERVICE = 'frsaas';
+const SERVICE = 'faceapi';
 const CONTRACT_VERSION = 'fijada-por-space';
 const TIMEOUT_MS = 5000;
 

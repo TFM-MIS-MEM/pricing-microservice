@@ -36,7 +36,7 @@ describe('space.service.setPlan', () => {
     expect(call.url).toBe(`http://space.invalid:3000/api/v1/contracts/${ACCOUNT}`);
     expect(call.method).toBe('PUT');
     expect(call.key).toBe(process.env.SPACE_API_KEY);
-    expect(call.body.subscriptionPlans).toEqual({ frsaas: 'PRO' });
+    expect(call.body.subscriptionPlans).toEqual({ faceapi: 'PRO' });
     expect(call.body.subscriptionAddOns).toEqual({});
   });
 
@@ -52,7 +52,7 @@ describe('space.service.setPlan', () => {
     expect(create.method).toBe('POST');
     expect(create.url).toBe('http://space.invalid:3000/api/v1/contracts');
     expect(create.body.userContact.userId).toBe(ACCOUNT);
-    expect(create.body.subscriptionPlans).toEqual({ frsaas: 'BUSINESS' });
+    expect(create.body.subscriptionPlans).toEqual({ faceapi: 'BUSINESS' });
     expect(create.body.billingPeriod).toEqual({ autoRenew: true, renewalDays: 30 });
   });
 
@@ -66,7 +66,7 @@ describe('space.service.setPlan', () => {
     await setPlan(ACCOUNT, 'free');
 
     expect(fetch.mock.calls.map((c) => c[1].method)).toEqual(['PUT', 'POST', 'PUT']);
-    expect(sent(fetch.mock.calls[2]).body.subscriptionPlans).toEqual({ frsaas: 'FREE' });
+    expect(sent(fetch.mock.calls[2]).body.subscriptionPlans).toEqual({ faceapi: 'FREE' });
   });
 
   it('lanza si SPACE responde un error, para que Stripe reintente', async () => {
